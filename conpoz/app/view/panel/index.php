@@ -187,10 +187,8 @@
         $.ajax({
             url: '//music2gether.lo:50126/read',
             type: 'get',
-            dataType: 'jsonp',
+            dataType: 'json',
             data: {smt: smt},
-            jsonp: 'callback',
-            jsonpCallback: 'readMsgBack',
             success: function (jsonObj) {
                 if (jsonObj.result == 0) {
                     speaker(jsonObj.message);
@@ -200,6 +198,22 @@
             error: function (jqxhr, textStatus, errorTHrown) {
             }
         });
+        // $.ajax({
+        //     url: '//music2gether.lo:50126/read',
+        //     type: 'get',
+        //     dataType: 'jsonp',
+        //     data: {smt: smt},
+        //     jsonp: 'callback',
+        //     jsonpCallback: 'readMsgBack',
+        //     success: function (jsonObj) {
+        //         if (jsonObj.result == 0) {
+        //             speaker(jsonObj.message);
+        //         }
+        //         readMsg(jsonObj.smt);
+        //     },
+        //     error: function (jqxhr, textStatus, errorTHrown) {
+        //     }
+        // });
     }
 </script>
 <script>
@@ -211,11 +225,10 @@
         // });
         $('#send').click(function () {
             $.ajax({
-                url: '//music2gether.lo:50126/send/' + $('#message').val(),
-                type: 'get',
-                dataType: 'jsonp',
-                jsonp: 'callback',
-                jsonpCallback: 'sendMsgBack',
+                url: '//music2gether.lo/message/send',
+                type: 'post',
+                dataType: 'json',
+                data: {message: $('#message').val()},
                 success: function (jsonObj) {
                     $('#message').val('');
                 },

@@ -70,17 +70,9 @@ class Listener
         // $e->addTimer(0.4);
         
         $e = \Event::Timer($this->base, function ($data) use ($fd, &$e) {
-            $headerStr = 'HTTP/1.1 200 OK' . PHP_EOL .
-            'Server: LPServer/1.0.0' . PHP_EOL .
-            'Content-Type: application/javascript'  . PHP_EOL .
-            'Connection: close' . PHP_EOL . PHP_EOL;
-            $result = $headerStr . 'readMsgBack(' . json_encode(array('result' => -1, 'smt' => microtime(true))) . ');';
             $eb = new \EventBuffer();
-            $eb->add($result);
-            if ($this->conn[$fd]->sending == false) {
-                $this->conn[$fd]->sending = true;
-                $this->conn[$fd]->bev->output->addBuffer($eb);
-            }
+            $eb->add($this->conn[$fd]->headerStr . json_encode(array('result' => -1, 'smt' => microtime(true))));
+            $this->conn[$fd]->bev->output->addBuffer($eb);
             $e->delTimer();
         });
         $e->data = $e;
