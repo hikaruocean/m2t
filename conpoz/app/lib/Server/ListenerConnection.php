@@ -3,19 +3,17 @@ namespace Conpoz\App\Lib\Server;
 
 class ListenerConnection 
 {
-    public $bev, $base, $conn, $fd, $e, $headerStr;
+    public $bev, $base, $fd, $e = null, $userId, $headerStr, $listener, $sTimestamp;
 
     public function __destruct () 
     {
         echo 'fd ' . $this->fd . ' leave' . PHP_EOL;
-        echo 'now connection number is: ' . count($this->conn) . PHP_EOL;
     }
 
-    public function __construct ($base, &$fd, &$e, &$conn) 
+    public function __construct ($base, &$fd, &$listener) 
     {
-        $this->conn = &$conn;
+        $this->listener = &$listener;
         $this->fd = &$fd;
-        $this->e = &$e;
         $this->base = $base;
         $this->headerStr = 'HTTP/1.1 200 OK' . PHP_EOL .
                     'Server: LPServer/1.0.0' . PHP_EOL .
@@ -57,7 +55,10 @@ class ListenerConnection
         }
         $pathInfo = explode('?', $reqInfo[1], 2);
         $queryParams = array();
-        parse_str($pathInfo[1], $queryParams);
+        if (isset($pathInfo[1])) {
+            parse_str($pathInfo[1], $queryParams);
+        }
+        
         $pathSegment = explode('/', trim($pathInfo[0], '/'));
         switch ($pathSegment[0]) {
             case 'send':
@@ -67,22 +68,69 @@ class ListenerConnection
                     $eb->add($this->headerStr . json_encode(array('result' => -1)));
                     $bev->output->addBuffer($eb);
                 } else {
-                    $smt = microtime(true);
                     $message = urldecode($pathSegment[1]);
-                    foreach ($this->conn as $fd => $listenerConnection) {
-                        if ($fd == $this->fd) {
-                            $eb = new \EventBuffer();
-                            $eb->add($this->headerStr . json_encode(array('result' => 0)));
-                            $listenerConnection->bev->output->addBuffer($eb);
+                    /**
+                    * php curl /send 程序，須馬上回傳結果
+                    */
+                    $eb = new \EventBuffer();
+                    $eb->add($this->headerStr . json_encode(array('result' => 0)));
+                    $bev->output->addBuffer($eb);
+                    /**
+                    * broadcast case
+                    */
+                    foreach ($this->listener->member as $id => &$v) {
+                        if ($v['fd'] == $this->fd) {
+                            /**
+                            * php curl /send 程序，須馬上回傳結果
+                            */
+                            // $eb = new \EventBuffer();
+                            // $eb->add($this->headerStr . json_encode(array('result' => 0)));
+                            // $v['conn']->bev->output->addBuffer($eb);
                         } else {
-                            $eb = new \EventBuffer();
-                            $eb->add($this->headerStr . json_encode(array('result' => 0, 'message' => $message, 'smt' => $smt)));
-                            $listenerConnection->bev->output->addBuffer($eb);
+                            /**
+                            * 所有會員通知，存入 tmepBuffer
+                            */
+                            $v['tempBuffer'][] = array('message' => $message);
+                            // $eb = new \EventBuffer();
+                            // $eb->add($this->headerStr . json_encode(array('message' => $message)));
+                            // $v->conn->bev->output->addBuffer($eb);
                         }
                     }
                 }
                 break;
             case 'read':
+                $this->sTimestamp = time() + 5;
+                $this->userId = $queryParams['userId'];
+                $this->listener->member[$this->userId]['fd'] = $this->fd;
+                $this->listener->member[$this->userId]['conn'] = $this;
+                /**
+                * add read timer
+                */
+                $e = \Event::Timer($this->base, function ($data) use (&$e) {
+                    if (!empty($this->listener->member[$this->userId]['tempBuffer'])) {
+                        echo 'add to buffer' . PHP_EOL;
+                        $eb = new \EventBuffer();
+                        $resultAry = array();
+                        while($tempData = array_shift($this->listener->member[$this->userId]['tempBuffer'])) {
+                            $resultAry[] = $tempData;
+                        }
+                        $eb->add($this->listener->member[$this->userId]['conn']->headerStr . json_encode(array('result' => 0, 'data' => $resultAry, 'smt' => microtime(true))));
+                        $this->listener->member[$this->userId]['conn']->bev->output->addBuffer($eb);
+                        return;
+                    }
+                    if (time() > $this->sTimestamp) {
+                        echo 'expired' . PHP_EOL;
+                        $eb = new \EventBuffer();
+                        $eb->add($this->listener->member[$this->userId]['conn']->headerStr . json_encode(array('result' => -1, 'smt' => microtime(true))));
+                        $this->listener->member[$this->userId]['conn']->bev->output->addBuffer($eb);
+                        $e->delTimer();
+                    } else {
+                        $e->addTimer(1);
+                    }
+                });
+                $e->data = $e;
+                $e->addTimer(1);
+                $this->e = &$e;
                 break;
             default:
                 $headerStr = 'HTTP/1.1 404 NOT FOUND' . PHP_EOL .
@@ -106,6 +154,7 @@ class ListenerConnection
     public function writeCallback ($bev)
     {
         if (0 === $bev->output->length) {
+            echo 'call kill' . PHP_EOL;
             $this->kill();
         }
     }
@@ -135,8 +184,12 @@ class ListenerConnection
         * $this->bev = null 是關鍵，若沒這樣做，判定有循環指向，不會呼叫 __destruct
         */
         $this->bev = null;
-        $this->e->delTimer();
-        $this->e = null;
-        unset($this->conn[$this->fd]);
+        if (!is_null($this->e)) {
+            $this->e->delTimer();
+            $this->e = null;
+        }
+        var_dump(array_keys($this->listener->member));
+        $this->listener->member[$this->userId]['fd'] = null;
+        $this->listener->member[$this->userId]['conn'] = null;
     }
 }

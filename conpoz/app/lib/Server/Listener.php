@@ -6,11 +6,16 @@ class Listener
     public $base,
         $listener,
         $socket;
-    public $conn = array();
+    public $member = array();
 
     public function __destruct () 
     {
-        foreach ($this->conn as &$c) $c = NULL;
+        foreach ($this->member as $id => &$v) {
+            $v->tempBuffer = null;
+            $v->conn = null;
+            $v->fd = null;
+            $v = null;
+        }
     }
 
     public function __construct ($port) 
@@ -69,17 +74,8 @@ class Listener
         // $e->data = $e;
         // $e->addTimer(0.4);
         
-        $e = \Event::Timer($this->base, function ($data) use ($fd, &$e) {
-            $eb = new \EventBuffer();
-            $eb->add($this->conn[$fd]->headerStr . json_encode(array('result' => -1, 'smt' => microtime(true))));
-            $this->conn[$fd]->bev->output->addBuffer($eb);
-            $e->delTimer();
-        });
-        $e->data = $e;
-        $e->addTimer(10);
-        
         $base = $this->base;
-        $this->conn[$fd] = new \Conpoz\App\Lib\Server\ListenerConnection($base, $fd, $e, $this->conn);
+        new \Conpoz\App\Lib\Server\ListenerConnection($base, $fd, $this);
         
     }
 
