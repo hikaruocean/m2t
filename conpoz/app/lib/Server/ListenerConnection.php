@@ -49,19 +49,23 @@ class ListenerConnection
             $echo .= $line;
             $no++;
         }
+        if (!isset($reqInfo[1])) {
+            $this->responseError();
+            return;
+        }
         $pathInfo = explode('?', $reqInfo[1], 2);
         $queryParams = array();
-        if (isset($pathInfo[1])) {
-            parse_str($pathInfo[1], $queryParams);
+        if (!isset($pathInfo[1])) {
+            $this->responseError();
+            return;
         }
+        parse_str($pathInfo[1], $queryParams);
         $pathSegment = explode('/', trim($pathInfo[0], '/'));
         switch ($pathSegment[0]) {
             case 'send':
                 echo 'send' . PHP_EOL;
                 if (!isset($queryParams['data']) || !isset($queryParams['target'])) {
-                    $eb = new \EventBuffer();
-                    $eb->add($this->listener->header200 . json_encode(array('result' => -1)));
-                    $bev->output->addBuffer($eb);
+                    $this->responseError();
                     return;
                 }
                 $smt = microtime(true);
@@ -100,9 +104,7 @@ class ListenerConnection
                 * 指定 userId
                 */
                 if (!isset($queryParams['userId'])) {
-                    $eb = new \EventBuffer();
-                    $eb->add($this->listener->header200 . json_encode(array('result' => -1)));
-                    $bev->output->addBuffer($eb);
+                    $this->responseError();
                     return;
                 }
                 $this->userId = $queryParams['userId'];
@@ -138,6 +140,14 @@ class ListenerConnection
             echo 'timeout' . PHP_EOL;
             $this->kill();
         }
+    }
+    
+    private function responseError ()
+    {
+        $eb = new \EventBuffer();
+        $eb->add($this->listener->header200 . json_encode(array('result' => -1)));
+        $this->bev->output->addBuffer($eb);
+        return;
     }
     
     public function kill ()
