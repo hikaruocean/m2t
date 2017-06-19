@@ -101,10 +101,7 @@
                         if (!player) {
                             createPlayer(null);
                         }
-                        $('.v-item[qid=' + jsonObj.id + ']').remove();
-                        if ($('.v-item').length > 0) {
-                            firstSortNo = $('.v-item').eq(0).attr('sort_no');
-                        }
+                        
                         $('#player').attr('src', jsonObj.videoId);
                         speaker('現在這首歌是' + jsonObj.title);
                         if (jsonObj.comment.length != 0) {
@@ -119,10 +116,7 @@
                         } else {
                             player.loadVideoById(jsonObj.videoId);
                         }
-                        $('.v-item[qid=' + jsonObj.id + ']').remove();
-                        if ($('.v-item').length > 0) {
-                            firstSortNo = $('.v-item').eq(0).attr('sort_no');
-                        }
+                        
                         speaker('現在這首歌是' + jsonObj.title);
                         if (jsonObj.comment.length != 0) {
                             setTimeout(function() {
@@ -147,40 +141,40 @@
     }
 
     function getList() {
-        if (getListSwitch) {
-            getListSwitch = false;
-            $.ajax({
-                url: '/panel/getVideoList',
-                type: 'post',
-                dataType: 'json',
-                data: {id: channelUserInfo.id, firstSortNo: firstSortNo, lastSortNo: lastSortNo},
-                success: function(jsonObj) {
-                    if (firstSortNo == 0 && jsonObj.append.length > 0) {
-                        firstSortNo = jsonObj.append[0].sort_no;
-                    }
-                    if (lastSortNo == 0 && jsonObj.append.length > 0) {
-                        lastSortNo = jsonObj.append[jsonObj.append.length - 1].sort_no;
-                    }
-                    for (i in jsonObj.prepend) {
-                        if (jsonObj.prepend[i].sort_no < firstSortNo) {
-                            firstSortNo = jsonObj.prepend[i].sort_no;
-                        }
-                        $('#player-list-ul').prepend('<li class="v-item" qid="' + jsonObj.prepend[i].id + '" sort_no="' + jsonObj.prepend[i].sort_no + '">' + jsonObj.prepend[i].title + '</li>');
-                    }
-                    for (i in jsonObj.append) {
-                        if (jsonObj.append[i].sort_no > lastSortNo) {
-                            lastSortNo = jsonObj.append[i].sort_no;
-                        }
-                        $('#player-list-ul').append('<li class="v-item" qid="' + jsonObj.append[i].id + '" sort_no="' + jsonObj.append[i].sort_no + '">' + jsonObj.append[i].title + '</li>');
-                    }
-                    getListSwitch = true;
-                },
-                error: function() {
-                    getListSwitch = true;
-                    alert('error');
-                }
-            });
-        }
+        // if (getListSwitch) {
+        //     getListSwitch = false;
+        //     $.ajax({
+        //         url: '/panel/getVideoList',
+        //         type: 'post',
+        //         dataType: 'json',
+        //         data: {id: channelUserInfo.id, firstSortNo: firstSortNo, lastSortNo: lastSortNo},
+        //         success: function(jsonObj) {
+        //             if (firstSortNo == 0 && jsonObj.append.length > 0) {
+        //                 firstSortNo = jsonObj.append[0].sort_no;
+        //             }
+        //             if (lastSortNo == 0 && jsonObj.append.length > 0) {
+        //                 lastSortNo = jsonObj.append[jsonObj.append.length - 1].sort_no;
+        //             }
+        //             for (i in jsonObj.prepend) {
+        //                 if (jsonObj.prepend[i].sort_no < firstSortNo) {
+        //                     firstSortNo = jsonObj.prepend[i].sort_no;
+        //                 }
+        //                 $('#player-list-ul').prepend('<li class="v-item" qid="' + jsonObj.prepend[i].id + '" sort_no="' + jsonObj.prepend[i].sort_no + '">' + jsonObj.prepend[i].title + '</li>');
+        //             }
+        //             for (i in jsonObj.append) {
+        //                 if (jsonObj.append[i].sort_no > lastSortNo) {
+        //                     lastSortNo = jsonObj.append[i].sort_no;
+        //                 }
+        //                 $('#player-list-ul').append('<li class="v-item" qid="' + jsonObj.append[i].id + '" sort_no="' + jsonObj.append[i].sort_no + '">' + jsonObj.append[i].title + '</li>');
+        //             }
+        //             getListSwitch = true;
+        //         },
+        //         error: function() {
+        //             getListSwitch = true;
+        //             alert('error');
+        //         }
+        //     });
+        // }
     }
     
     function readMsg (smt) {
@@ -196,6 +190,15 @@
                             switch (key) {
                                 case 'message':
                                     speaker(jsonObj.data[i][key]);
+                                    break;
+                                case 'videoList':
+                                    $('.v-item').remove();
+                                    addItemStr = '';
+                                    for (j in jsonObj.data[i][key]) {
+                                        jsonObj.data[i][key][j]
+                                        addItemStr += '<li class="v-item" qid="' + jsonObj.data[i][key][j].id + '" sort_no="' + jsonObj.data[i][key][j].sort_no + '">' + jsonObj.data[i][key][j].title + '</li>';
+                                    }
+                                    $('#player-list-ul').append(addItemStr);
                                     break;
                             }
                         }

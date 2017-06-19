@@ -35,6 +35,7 @@ class Panel extends \Conpoz\App\Controller\BaseController
         $channelUserInfo = null;
         $selfChannel = null;
         $this->getChannelUserId($channelUserInfo, $selfChannel);
+        $this->videoListChange($channelUserInfo->id);
         $this->view->addView('/htmlTemplate');
         $this->view->addView('/panel/index');
         require($this->view->getView());
@@ -51,6 +52,7 @@ class Panel extends \Conpoz\App\Controller\BaseController
                 return;
             }
             $bag->dbquery->update('play_queue', array('status' => 1), "id = :id AND user_id = :userId", array('id' => (int) $obj->id, 'userId' => (int) $params['id']));
+            
         } else {
             $rh = $bag->dbquery->execute("SELECT id, info_result_code, video_id, title, comment FROM play_queue WHERE user_id = :userId AND status = 1 ORDER BY sort_no DESC LIMIT 1", array('userId' => (int) $params['id']));
             $obj = $rh->fetch();
@@ -66,6 +68,7 @@ class Panel extends \Conpoz\App\Controller\BaseController
         }
         
         echo json_encode(array('result' => (int) $obj->info_result_code, 'id' => $obj->id, 'videoId' => $obj->video_id, 'title' => $obj->title, 'comment' => $obj->comment));
+        $this->videoListChange($params['id']);
         return;
     }
     
@@ -111,10 +114,23 @@ class Panel extends \Conpoz\App\Controller\BaseController
         $bag->dbquery->insert('play_queue', array('user_id' => (int) $params['id'], 'order_user_id' => (int) $bag->sess->user_id, 'url' => $params['url'], 'info_result_code' => (int) $infoResultCode, 'comment' => $params['comment'], 'video_id' => $data['v'], 'title' => $vTitle, 'status' => 0, 'sort_no' => microtime(true)));
         $bag->dbquery->commit();
         echo json_encode(array('result' => 0, 'title' => $vTitle));
-        return;
+        $this->videoListChange($params['id']);
     }
     
-    public function getVideoListAction ($bag) {
+    private function videoListChange ($userId)
+    {
+        $bag = $this->bag;
+        $rh = $bag->dbquery->execute("SELECT id, title, sort_no FROM play_queue WHERE user_id = :userId AND status = 0 ORDER BY sort_no ASC", array('userId' => (int) $userId));
+        $resultAry = array();
+        while ($obj = $rh->fetch()) {
+            $resultAry[] = $obj;
+        }
+        $payload = 'data=' . urlencode(json_encode(array('videoList' => $resultAry))) . '&target=' . urlencode(json_encode(array($bag->sess->user_id)));
+        $resultAry = $bag->net->httpGet('http://127.0.0.1:50126/send?' . $payload);
+    }
+    
+    public function getVideoListAction ($bag) 
+    {
         $params = $bag->req->getPost(array('id', 'firstSortNo', 'lastSortNo'));
         $rh = $bag->dbquery->execute("SELECT id, title, sort_no FROM play_queue WHERE user_id = :userId AND status = 0 AND sort_no < :firstSortNo UNION ALL SELECT id, title, sort_no FROM play_queue WHERE user_id = :userId AND status = 0 AND sort_no > :lastSortNo ORDER BY sort_no ASC", array('userId' => (int) $params['id'], 'firstSortNo' => (float) $params['firstSortNo'], 'lastSortNo' => (float) $params['lastSortNo']));
         $reaultAry = array('prepend' => array(), 'append' => array());
