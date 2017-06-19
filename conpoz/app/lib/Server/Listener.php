@@ -11,20 +11,28 @@ class Listener
     public $header404 = 'HTTP/1.1 404 NOT FOUND' . PHP_EOL .
                 'Server: LPServer/1.0.0' . PHP_EOL .
                 'Content-Type: text/html; charset=utf-8'  . PHP_EOL .
-                'Connection: close' . PHP_EOL . PHP_EOL;
+                'Connection: close' . PHP_EOL;
     public $header200 = 'HTTP/1.1 200 OK' . PHP_EOL .
                 'Server: LPServer/1.0.0' . PHP_EOL .
                 'Content-Type: application/json'  . PHP_EOL .
-                'Connection: close' . PHP_EOL .
-                'Access-Control-Allow-Origin: http://music2gether.lo' . PHP_EOL . PHP_EOL;
+                'Connection: close' . PHP_EOL;
 
     public function __destruct () 
     {
         foreach ($this->conn as &$c) $c = NULL;
     }
 
-    public function __construct ($port) 
+    public function __construct ($params) 
     {
+        /**
+        * $params['port'] = 50126
+        * $params['allowOrigin'] = '*'
+        */
+        $params = array_merge(array('port' => '50126', 'allowOrigin' => '*'), $params);
+        $this->header404 .= 'Access-Control-Allow-Origin: ' . $params['allowOrigin'] . PHP_EOL . PHP_EOL;
+        $this->header200 .= 'Access-Control-Allow-Origin: ' . $params['allowOrigin'] . PHP_EOL . PHP_EOL;
+        
+        
         $this->base = new \EventBase();
         if (!$this->base) {
             echo "Couldn't open event base";
@@ -48,7 +56,7 @@ class Listener
          $this->listener = new \EventListener($this->base,
              array($this, "acceptConnCallback"), $this->base,
              \EventListener::OPT_CLOSE_ON_FREE | \EventListener::OPT_REUSEABLE, -1,
-             "0.0.0.0:$port");
+             "0.0.0.0:" . $params['port']);
 
         if (!$this->listener) {
             echo "Couldn't create listener";
@@ -84,7 +92,7 @@ class Listener
             if ($userId != -1 && !empty($this->user[$userId]['tempBuffer'])) {
                 $resultAry = array();
                 while (($data = array_shift($this->user[$userId]['tempBuffer'])) && !is_null($data)) {
-                    var_dump($data);
+                    // var_dump($data);
                     $resultAry[]= $data;
                 }
                 foreach ($this->user[$userId]['conn'] as $fd => $conn) {
@@ -95,7 +103,7 @@ class Listener
                 return;
             }
             if ($eTimestamp > time()) {
-                $e->addTimer(1);
+                $e->addTimer(0.5);
                 return;
             }
             $eb = new \EventBuffer();

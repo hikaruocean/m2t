@@ -6,7 +6,7 @@ class LPServer
     public function runAction ($bag)
     {
         $port = 50126;
-        $l = new \Conpoz\App\Lib\Server\Listener($port);
+        $l = new \Conpoz\App\Lib\Server\Listener(array('port' => '50126', 'allowOrigin' => 'http://music2gether.lo'));
         $l->dispatch();
     }
 }
