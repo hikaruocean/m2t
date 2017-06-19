@@ -188,10 +188,18 @@
             url: '//music2gether.lo:50126/read',
             type: 'get',
             dataType: 'json',
-            data: {smt: smt},
+            data: {userId: channelUserInfo.id, smt: smt},
             success: function (jsonObj) {
                 if (jsonObj.result == 0) {
-                    speaker(jsonObj.message);
+                    for (i in jsonObj.data) {
+                        for (key in jsonObj.data[i]) {
+                            switch (key) {
+                                case 'message':
+                                    speaker(jsonObj.data[i][key]);
+                                    break;
+                            }
+                        }
+                    }
                 }
                 readMsg(jsonObj.smt);
             },
@@ -230,6 +238,9 @@
                 dataType: 'json',
                 data: {message: $('#message').val()},
                 success: function (jsonObj) {
+                    if (jsonObj.result != 0) {
+                        return;
+                    }
                     $('#message').val('');
                 },
                 error: function (jqxhr, textStatus, errorTHrown) {

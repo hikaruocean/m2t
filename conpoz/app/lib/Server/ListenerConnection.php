@@ -3,26 +3,20 @@ namespace Conpoz\App\Lib\Server;
 
 class ListenerConnection 
 {
-    public $bev, $base, $conn, $fd, $e, $headerStr;
+    public $bev, $base, $listener, $userId = -1, $fd, $e;
 
     public function __destruct () 
     {
         echo 'fd ' . $this->fd . ' leave' . PHP_EOL;
-        echo 'now connection number is: ' . count($this->conn) . PHP_EOL;
+        echo 'now connection number is: ' . count($this->listener->conn) . PHP_EOL;
     }
 
-    public function __construct ($base, &$fd, &$e, &$conn) 
+    public function __construct ($base, &$fd, &$e, &$listener) 
     {
-        $this->conn = &$conn;
+        $this->listener = &$listener;
         $this->fd = &$fd;
         $this->e = &$e;
         $this->base = $base;
-        $this->headerStr = 'HTTP/1.1 200 OK' . PHP_EOL .
-                    'Server: LPServer/1.0.0' . PHP_EOL .
-                    'Content-Type: application/json'  . PHP_EOL .
-                    'Connection: close' . PHP_EOL .
-                    'Access-Control-Allow-Origin: http://music2gether.lo' . PHP_EOL . PHP_EOL;
-
         $this->bev = new \EventBufferEvent($base, $fd, \EventBufferEvent::OPT_CLOSE_ON_FREE);
 
         $this->bev->setCallbacks(array($this, "readCallback"), array($this, "writeCallback"),
@@ -57,50 +51,68 @@ class ListenerConnection
         }
         $pathInfo = explode('?', $reqInfo[1], 2);
         $queryParams = array();
-        parse_str($pathInfo[1], $queryParams);
+        if (isset($pathInfo[1])) {
+            parse_str($pathInfo[1], $queryParams);
+        }
         $pathSegment = explode('/', trim($pathInfo[0], '/'));
         switch ($pathSegment[0]) {
             case 'send':
                 echo 'send' . PHP_EOL;
-                if (!isset($pathSegment[1])) {
+                if (!isset($queryParams['data']) || !isset($queryParams['target'])) {
                     $eb = new \EventBuffer();
-                    $eb->add($this->headerStr . json_encode(array('result' => -1)));
+                    $eb->add($this->listener->header200 . json_encode(array('result' => -1)));
                     $bev->output->addBuffer($eb);
-                } else {
-                    $smt = microtime(true);
-                    $message = urldecode($pathSegment[1]);
-                    foreach ($this->conn as $fd => $listenerConnection) {
-                        if ($fd == $this->fd) {
-                            $eb = new \EventBuffer();
-                            $eb->add($this->headerStr . json_encode(array('result' => 0)));
-                            $listenerConnection->bev->output->addBuffer($eb);
-                        } else {
-                            $eb = new \EventBuffer();
-                            $eb->add($this->headerStr . json_encode(array('result' => 0, 'message' => $message, 'smt' => $smt)));
-                            $listenerConnection->bev->output->addBuffer($eb);
-                        }
+                    return;
+                }
+                $smt = microtime(true);
+                $sendData = json_decode(urldecode($queryParams['data']), true);
+                $sendTarget = json_decode(urldecode($queryParams['target']), true);
+                // var_dump($sendData, $sendTarget);
+                /**
+                * 傳送資料連線本身, 立刻回應 request 端成功
+                */
+                $eb = new \EventBuffer();
+                $eb->add($this->listener->header200 . json_encode(array('result' => 0, 'smt' => $smt)));
+                $bev->output->addBuffer($eb);
+                if (is_string($sendTarget) && $sendTarget = '*') {
+                    /**
+                    * online user broadcast case
+                    * 寫入各 user 的 tempBuffer
+                    */
+                    echo 'brodcast add buffer' . PHP_EOL;
+                    foreach ($this->listener->user as $userId => &$userResource) {
+                        $userResource['tempBuffer'][] = $sendData;
+                    }
+                    unset($userResource);
+                    // var_dump($this->listener->user);
+                } else if (is_array($sendTarget)){
+                    /**
+                    * 指定 user 傳送，就寫到該 user 的 tempBuffer
+                    */
+                    echo 'specified user add buffer' . PHP_EOL;
+                    foreach ($sendTarget as $userId) {
+                        $this->listener->user[$userId]['tempBuffer'][] = $sendData;
                     }
                 }
                 break;
             case 'read':
+                /**
+                * 指定 userId
+                */
+                if (!isset($queryParams['userId'])) {
+                    $eb = new \EventBuffer();
+                    $eb->add($this->listener->header200 . json_encode(array('result' => -1)));
+                    $bev->output->addBuffer($eb);
+                    return;
+                }
+                $this->userId = $queryParams['userId'];
+                $this->listener->user[$this->userId]['conn'][$this->fd] = $this;
                 break;
             default:
-                $headerStr = 'HTTP/1.1 404 NOT FOUND' . PHP_EOL .
-                            'Server: LPServer/1.0.0' . PHP_EOL .
-                            'Content-Type: text/html; charset=utf-8'  . PHP_EOL .
-                            'Connection: close' . PHP_EOL . PHP_EOL;
-                $result = $headerStr;
                 $eb = new \EventBuffer();
-                $eb->add($result);
+                $eb->add($this->listener->header404);
                 $bev->output->addBuffer($eb);
         }
-        
-        /* Variant #2 */
-        /*
-        $input    = $bev->getInput();
-        $output = $bev->getOutput();
-        $output->addBuffer($input);
-        */
     }
     
     public function writeCallback ($bev)
@@ -137,6 +149,9 @@ class ListenerConnection
         $this->bev = null;
         $this->e->delTimer();
         $this->e = null;
-        unset($this->conn[$this->fd]);
+        unset($this->listener->conn[$this->fd]);
+        if ($this->userId != -1) {
+            unset($this->listener->user[$this->userId]['conn'][$this->fd]);
+        }
     }
 }

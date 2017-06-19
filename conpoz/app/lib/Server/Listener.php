@@ -7,6 +7,16 @@ class Listener
         $listener,
         $socket;
     public $conn = array();
+    public $user = array();
+    public $header404 = 'HTTP/1.1 404 NOT FOUND' . PHP_EOL .
+                'Server: LPServer/1.0.0' . PHP_EOL .
+                'Content-Type: text/html; charset=utf-8'  . PHP_EOL .
+                'Connection: close' . PHP_EOL . PHP_EOL;
+    public $header200 = 'HTTP/1.1 200 OK' . PHP_EOL .
+                'Server: LPServer/1.0.0' . PHP_EOL .
+                'Content-Type: application/json'  . PHP_EOL .
+                'Connection: close' . PHP_EOL .
+                'Access-Control-Allow-Origin: http://music2gether.lo' . PHP_EOL . PHP_EOL;
 
     public function __destruct () 
     {
@@ -68,18 +78,35 @@ class Listener
         // });
         // $e->data = $e;
         // $e->addTimer(0.4);
-        
-        $e = \Event::Timer($this->base, function ($data) use ($fd, &$e) {
+        $eTimestamp = time() + 60;
+        $e = \Event::Timer($this->base, function ($data) use ($eTimestamp, $fd, &$e) {
+            $userId = $this->conn[$fd]->userId;
+            if ($userId != -1 && !empty($this->user[$userId]['tempBuffer'])) {
+                $resultAry = array();
+                while (($data = array_shift($this->user[$userId]['tempBuffer'])) && !is_null($data)) {
+                    var_dump($data);
+                    $resultAry[]= $data;
+                }
+                foreach ($this->user[$userId]['conn'] as $fd => $conn) {
+                    $eb = new \EventBuffer();
+                    $eb->add($this->header200 . json_encode(array('result' => 0, 'data' => $resultAry, 'smt' => microtime(true))));
+                    $conn->bev->output->addBuffer($eb);
+                }
+                return;
+            }
+            if ($eTimestamp > time()) {
+                $e->addTimer(1);
+                return;
+            }
             $eb = new \EventBuffer();
-            $eb->add($this->conn[$fd]->headerStr . json_encode(array('result' => -1, 'smt' => microtime(true))));
+            $eb->add($this->header200 . json_encode(array('result' => -1, 'smt' => microtime(true))));
             $this->conn[$fd]->bev->output->addBuffer($eb);
-            $e->delTimer();
         });
         $e->data = $e;
-        $e->addTimer(10);
+        $e->addTimer(0.1);
         
         $base = $this->base;
-        $this->conn[$fd] = new \Conpoz\App\Lib\Server\ListenerConnection($base, $fd, $e, $this->conn);
+        $this->conn[$fd] = new \Conpoz\App\Lib\Server\ListenerConnection($base, $fd, $e, $this);
         
     }
 
