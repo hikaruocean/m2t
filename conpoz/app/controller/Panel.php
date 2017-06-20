@@ -125,7 +125,7 @@ class Panel extends \Conpoz\App\Controller\BaseController
         while ($obj = $rh->fetch()) {
             $resultAry[] = $obj;
         }
-        $payload = 'data=' . urlencode(json_encode(array('videoList' => $resultAry))) . '&target=' . urlencode(json_encode(array($bag->sess->user_id)));
+        $payload = 'data=' . urlencode(json_encode(array('videoList' => $resultAry))) . '&channel=' . urlencode(json_encode(array('video_channel_' . $userId)));
         $resultAry = $bag->net->httpGet('http://127.0.0.1:50126/send?' . $payload);
     }
     
@@ -164,5 +164,6 @@ class Panel extends \Conpoz\App\Controller\BaseController
         }
         $bag->dbquery->update('play_queue', array('sort_no' => $obj->sort_no - 0.0001), "id = :id", array('id' => (int) $params['qid']));
         echo json_encode(array('result' => 0));
+        $this->videoListChange($params['id']);
     }
 }

@@ -3,7 +3,7 @@ namespace Conpoz\App\Lib\Server;
 
 class ListenerConnection 
 {
-    public $bev, $base, $listener, $userId = -1, $fd, $e;
+    public $bev, $base, $listener, $channel = array(), $fd, $e;
 
     public function __destruct () 
     {
@@ -64,51 +64,53 @@ class ListenerConnection
         switch ($pathSegment[0]) {
             case 'send':
                 echo 'send' . PHP_EOL;
-                if (!isset($queryParams['data']) || !isset($queryParams['target'])) {
+                if (!isset($queryParams['data']) || !isset($queryParams['channel'])) {
                     $this->responseError();
                     return;
                 }
                 $smt = microtime(true);
                 $sendData = json_decode(urldecode($queryParams['data']), true);
-                $sendTarget = json_decode(urldecode($queryParams['target']), true);
-                // var_dump($sendData, $sendTarget);
+                $sendChannel = json_decode(urldecode($queryParams['channel']), true);
+                // var_dump($sendData, $sendChannel);
                 /**
                 * 傳送資料連線本身, 立刻回應 request 端成功
                 */
                 $eb = new \EventBuffer();
                 $eb->add($this->listener->header200 . json_encode(array('result' => 0, 'smt' => $smt)));
                 $bev->output->addBuffer($eb);
-                if (is_string($sendTarget) && $sendTarget = '*') {
+                if (is_string($sendChannel) && $sendChannel == '*') {
                     /**
-                    * online user broadcast case
-                    * 寫入各 user 的 tempBuffer
+                    * online channel broadcast case
+                    * 寫入各 channel 的 tempBuffer
                     */
                     echo 'brodcast add buffer' . PHP_EOL;
-                    foreach ($this->listener->user as $userId => &$userResource) {
-                        $userResource['tempBuffer'][] = $sendData;
+                    foreach ($this->listener->channel as $channelId => &$channelResource) {
+                        $channelResource['tempBuffer'][] = $sendData;
                     }
-                    unset($userResource);
-                    // var_dump($this->listener->user);
-                } else if (is_array($sendTarget)){
+                    unset($channelResource);
+                    // var_dump($this->listener->channel);
+                } else if (is_array($sendChannel)){
                     /**
-                    * 指定 user 傳送，就寫到該 user 的 tempBuffer
+                    * 指定 channel 傳送，就寫到該 channel 的 tempBuffer
                     */
-                    echo 'specified user add buffer' . PHP_EOL;
-                    foreach ($sendTarget as $userId) {
-                        $this->listener->user[$userId]['tempBuffer'][] = $sendData;
+                    echo 'specified channel add buffer' . PHP_EOL;
+                    foreach ($sendChannel as $channelId) {
+                        $this->listener->channel[$channelId]['tempBuffer'][] = $sendData;
                     }
                 }
                 break;
             case 'read':
                 /**
-                * 指定 userId
+                * 指定 channelId
                 */
-                if (!isset($queryParams['userId'])) {
+                if (!isset($queryParams['channel'])) {
                     $this->responseError();
                     return;
                 }
-                $this->userId = $queryParams['userId'];
-                $this->listener->user[$this->userId]['conn'][$this->fd] = $this;
+                $this->channel = json_decode(urldecode($queryParams['channel']), true);
+                foreach ($this->channel as $channelId) {
+                    $this->listener->channel[$channelId]['conn'][$this->fd] = $this;
+                }
                 break;
             default:
                 $eb = new \EventBuffer();
@@ -160,8 +162,8 @@ class ListenerConnection
         $this->e->delTimer();
         $this->e = null;
         unset($this->listener->conn[$this->fd]);
-        if ($this->userId != -1) {
-            unset($this->listener->user[$this->userId]['conn'][$this->fd]);
+        foreach ($this->channel as $channelId) {
+            unset($this->listener->channel[$channelId]['conn'][$this->fd]);
         }
     }
 }

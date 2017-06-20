@@ -7,7 +7,7 @@ class Listener
         $listener,
         $socket;
     public $conn = array();
-    public $user = array();
+    public $channel = array();
     public $header404 = 'HTTP/1.1 404 NOT FOUND' . PHP_EOL .
                 'Server: LPServer/1.0.0' . PHP_EOL .
                 'Content-Type: text/html; charset=utf-8'  . PHP_EOL .
@@ -88,20 +88,40 @@ class Listener
         // $e->addTimer(0.4);
         $eTimestamp = time() + 60;
         $e = \Event::Timer($this->base, function ($data) use ($eTimestamp, $fd, &$e) {
-            $userId = $this->conn[$fd]->userId;
-            if ($userId != -1 && !empty($this->user[$userId]['tempBuffer'])) {
+            $readyAddBuffer = array();
+            $channel = $this->conn[$fd]->channel;
+            foreach ($channel as $channelId) {
+                
                 $resultAry = array();
-                while (($data = array_shift($this->user[$userId]['tempBuffer'])) && !is_null($data)) {
-                    // var_dump($data);
-                    $resultAry[]= $data;
+                if (!empty($this->channel[$channelId]['tempBuffer'])) {
+                    /**
+                     * 匯整 channel 的 send data 
+                     */
+                    while (($data = array_shift($this->channel[$channelId]['tempBuffer'])) && !is_null($data)) {
+                        // var_dump($data);
+                        $resultAry[]= $data;
+                    }
+                    /**
+                     * 把 channel 的所有 fd 累加上 send data
+                     */
+                    foreach ($this->channel[$channelId]['conn'] as $rfd => $conn) {
+                        if (!isset($readyAddBuffer[$rfd])) {
+                            $readyAddBuffer[$rfd] = $resultAry;
+                        } else {
+                            $readyAddBuffer[$rfd] = array_merge($readyAddBuffer[$rfd], $resultAry);
+                        }
+                    }
                 }
-                foreach ($this->user[$userId]['conn'] as $fd => $conn) {
+            }
+            if (!empty($readyAddBuffer)) {
+                foreach ($readyAddBuffer as $rfd => &$resultAry) {
                     $eb = new \EventBuffer();
                     $eb->add($this->header200 . json_encode(array('result' => 0, 'data' => $resultAry, 'smt' => microtime(true))));
-                    $conn->bev->output->addBuffer($eb);
+                    $this->conn[$rfd]->bev->output->addBuffer($eb);
                 }
-                return;
+                unset($resultAry);
             }
+            
             if ($eTimestamp > time()) {
                 $e->addTimer(1);
                 return;

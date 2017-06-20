@@ -178,11 +178,12 @@
     }
     
     function readMsg (smt) {
+        var channelString = JSON.stringify(['video_channel_' + channelUserInfo.id, 'global_message']);
         $.ajax({
-            url: '//music2gether.lo:50126/read',
+            url: '//' + window.location.host + ':50126/read',
             type: 'get',
             dataType: 'json',
-            data: {userId: channelUserInfo.id, smt: smt},
+            data: {channel: channelString, smt: smt},
             success: function (jsonObj) {
                 if (jsonObj.result == 0) {
                     for (i in jsonObj.data) {
@@ -236,7 +237,7 @@
         // });
         $('#send').click(function () {
             $.ajax({
-                url: '//music2gether.lo/message/send',
+                url: '/message/send',
                 type: 'post',
                 dataType: 'json',
                 data: {message: $('#message').val()},
