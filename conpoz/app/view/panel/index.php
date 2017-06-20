@@ -34,7 +34,8 @@
     var player = null;
     var loadNextVideoFlag = false;
     var commetDelaySecond = 30000;
-    var noListReloadSecond = 10000;
+    var noListReloadSecond = 5000;
+    var readMsgRetrySecond = 10000;
     var firstSortNo = 0;
     var lastSortNo = 0;
     var getListSwitch = true;
@@ -125,7 +126,7 @@
                         }
                         break;
                 }
-                getList();
+                // getList();
             },
             error: function() {
                 alert('error');
@@ -208,6 +209,8 @@
                 readMsg(jsonObj.smt);
             },
             error: function (jqxhr, textStatus, errorTHrown) {
+                setTimeout(readMsg, readMsgRetrySecond);
+                jqxhr.abort();
             }
         });
         // $.ajax({
@@ -267,7 +270,7 @@
                         alert(jsonObj.reason);
                         return;
                     }
-                    getList();
+                    // getList();
                 }
             });
             $('#url').val('');
@@ -287,8 +290,8 @@
                     qid: qid
                 },
                 success: function(jsonObj) {
-                    _this.remove();
-                    getList();
+                    // _this.remove();
+                    // getList();
                 },
                 error: function() {
 
@@ -296,8 +299,8 @@
             });
         });
         
-        setInterval(getList, 8000);
-        getList();
+        // setInterval(getList, 8000);
+        // getList();
         readMsg(0);
     });
 </script>

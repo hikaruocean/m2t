@@ -94,9 +94,12 @@ class ListenerConnection
                     * 指定 channel 傳送，就寫到該 channel 的 tempBuffer
                     */
                     echo 'specified channel add buffer' . PHP_EOL;
+                    $sendChannelLog = '';
                     foreach ($sendChannel as $channelId) {
+                        $sendChannelLog .= $channelId . ',';
                         $this->listener->channel[$channelId]['tempBuffer'][] = $sendData;
                     }
+                    echo $sendChannelLog . PHP_EOL;
                 }
                 break;
             case 'read':
@@ -129,12 +132,13 @@ class ListenerConnection
     public function eventCallback ($bev, $events, $ctx) 
     {
         if ($events & \EventBufferEvent::ERROR) {
-            echo "Error from bufferevent\n";
+            echo "ERROR" . PHP_EOL;
+            echo \EventUtil::getLastSocketError() . PHP_EOL;
             $this->kill();
         }
 
-        if ($events & (\EventBufferEvent::EOF | \EventBufferEvent::ERROR)) {
-            echo "EOF | ERROR" . PHP_EOL;
+        if ($events & (\EventBufferEvent::EOF)) {
+            echo "EOF" . PHP_EOL;
             $this->kill();
         }
         
