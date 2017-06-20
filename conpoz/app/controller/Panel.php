@@ -62,12 +62,13 @@ class Panel extends \Conpoz\App\Controller\BaseController
             }
         }
         
+        $src = null;
         if ((int) $obj->info_result_code == -1) {
             list($prot, $ver) = explode('/', $_SERVER["SERVER_PROTOCOL"]);
-            $obj->video_id = 'https://www.youtube.com/embed/' . $obj->video_id . '?autoplay=true&enablejsapi=1&origin=' . strtolower($prot) . '%3A%2F%2F' . $_SERVER["HTTP_HOST"] . '&widgetid=1';
+            $src = 'https://www.youtube.com/embed/' . $obj->video_id . '?autoplay=true&enablejsapi=1&origin=' . strtolower($prot) . '%3A%2F%2F' . $_SERVER["HTTP_HOST"] . '&widgetid=1';
         }
         
-        echo json_encode(array('result' => (int) $obj->info_result_code, 'id' => $obj->id, 'videoId' => $obj->video_id, 'title' => $obj->title, 'comment' => $obj->comment));
+        echo json_encode(array('result' => (int) $obj->info_result_code, 'id' => $obj->id, 'videoId' => $obj->video_id, 'src' => $src, 'title' => $obj->title, 'comment' => $obj->comment));
         $this->videoListChange($params['id']);
         return;
     }

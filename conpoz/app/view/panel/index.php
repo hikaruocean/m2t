@@ -33,7 +33,7 @@
 
     var player = null;
     var loadNextVideoFlag = false;
-    var commetDelaySecond = 30000;
+    var commetDelaySecond = 100000;
     var noListReloadSecond = 5000;
     var readMsgRetrySecond = 10000;
     var firstSortNo = 0;
@@ -42,30 +42,35 @@
     
     function createPlayer(videoId) {
         player = new YT.Player('player', {
-            height: '390',
-            width: '640',
+            height: '270',
+            width: '480',
             videoId: videoId,
             events: {
-                'onReady': onPlayerReady
+                'onReady': onPlayerReady,
+                'onStateChange': onPlayerStateChange
             }
         });
     }
 
-    var sid = setInterval(function() {
-        if (player != null) {
-            var state = player.getPlayerState();
-            if (0 == state && state != null && loadNextVideoFlag == false) {
-                //   $('#log').append('<span>' + state + '</span>');
-                loadNextVideoFlag = true;
-                onPlayerStateChange({
-                    data: state
-                });
-            }
-            if (1 == state && loadNextVideoFlag == true) {
-                loadNextVideoFlag = false;
-            }
-        }
-    }, 100);
+    /**
+    * 測試版在網址為 ip 的情況下
+    * 自己設定 onStateChnage 來對版權問題 workaround
+    */
+    // var sid = setInterval(function() {
+    //     if (player != null && typeof player.getPlayerState !== 'undefined') {
+    //         var state = player.getPlayerState();
+    //         if (0 == state && state != null && loadNextVideoFlag == false) {
+    //             //   $('#log').append('<span>' + state + '</span>');
+    //             loadNextVideoFlag = true;
+    //             onPlayerStateChange({
+    //                 data: state
+    //             });
+    //         }
+    //         if (1 == state && loadNextVideoFlag == true) {
+    //             loadNextVideoFlag = false;
+    //         }
+    //     }
+    // }, 100);
     
     function onPlayerReady(event) {
         event.target.playVideo();
@@ -73,7 +78,11 @@
 
     function onPlayerStateChange(event) {
         if (event.data == YT.PlayerState.ENDED) {
+            loadNextVideoFlag = true;
             loadNextVideo();
+        }
+        if (event.data == YT.PlayerState.PLAYING) {
+            loadNextVideoFlag = false;
         }
     }
 
@@ -96,28 +105,36 @@
             success: function(jsonObj) {
                 switch (jsonObj.result) {
                     case -2:
+                        if (player == null) {
+                            createPlayer(null);
+                        }
+                        document.title = 'OFF AIR';
                         setTimeout(loadNextVideo, noListReloadSecond);
                         break;
                     case -1:
-                        if (!player) {
-                            createPlayer(null);
-                        }
-                        
-                        $('#player').attr('src', jsonObj.videoId);
-                        speaker('現在這首歌是' + jsonObj.title);
-                        if (jsonObj.comment.length != 0) {
-                            setTimeout(function() {
-                                speaker(jsonObj.comment);
-                            }, commetDelaySecond);
-                        }
-                        break;
+                        /**
+                        * 測試版在網址為 ip 的情況下
+                        * 用 src replace 來對版權問題 workaround
+                        */
+                        // if (player == null) {
+                        //     createPlayer(null);
+                        // }
+                        // document.title = 'ON AIR';
+                        // $('#player').attr('src', jsonObj.src);
+                        // speaker('現在這首歌是' + jsonObj.title);
+                        // if (jsonObj.comment.length != 0) {
+                        //     setTimeout(function() {
+                        //         speaker(jsonObj.comment);
+                        //     }, commetDelaySecond);
+                        // }
+                        // break;
                     case 0:
-                        if (!player) {
+                        if (player == null) {
                             createPlayer(jsonObj.videoId);
                         } else {
                             player.loadVideoById(jsonObj.videoId);
                         }
-                        
+                        document.title = 'ON AIR';
                         speaker('現在這首歌是' + jsonObj.title);
                         if (jsonObj.comment.length != 0) {
                             setTimeout(function() {
@@ -126,7 +143,6 @@
                         }
                         break;
                 }
-                // getList();
             },
             error: function() {
                 alert('error');
@@ -137,45 +153,17 @@
     function speaker(text) {
         //US English Female
         responsiveVoice.speak(text, 'Chinese Female', {
-            onend: function(EndCallback) {}
+            onstart: function () {
+                if (player != null && typeof player.setVolume !== 'undefined') {
+                    player.setVolume(30);
+                }
+            },
+            onend: function() {
+                if (player != null && typeof player.setVolume !== 'undefined') {
+                    player.setVolume(100);
+                }
+            }
         });
-    }
-
-    function getList() {
-        // if (getListSwitch) {
-        //     getListSwitch = false;
-        //     $.ajax({
-        //         url: '/panel/getVideoList',
-        //         type: 'post',
-        //         dataType: 'json',
-        //         data: {id: channelUserInfo.id, firstSortNo: firstSortNo, lastSortNo: lastSortNo},
-        //         success: function(jsonObj) {
-        //             if (firstSortNo == 0 && jsonObj.append.length > 0) {
-        //                 firstSortNo = jsonObj.append[0].sort_no;
-        //             }
-        //             if (lastSortNo == 0 && jsonObj.append.length > 0) {
-        //                 lastSortNo = jsonObj.append[jsonObj.append.length - 1].sort_no;
-        //             }
-        //             for (i in jsonObj.prepend) {
-        //                 if (jsonObj.prepend[i].sort_no < firstSortNo) {
-        //                     firstSortNo = jsonObj.prepend[i].sort_no;
-        //                 }
-        //                 $('#player-list-ul').prepend('<li class="v-item" qid="' + jsonObj.prepend[i].id + '" sort_no="' + jsonObj.prepend[i].sort_no + '">' + jsonObj.prepend[i].title + '</li>');
-        //             }
-        //             for (i in jsonObj.append) {
-        //                 if (jsonObj.append[i].sort_no > lastSortNo) {
-        //                     lastSortNo = jsonObj.append[i].sort_no;
-        //                 }
-        //                 $('#player-list-ul').append('<li class="v-item" qid="' + jsonObj.append[i].id + '" sort_no="' + jsonObj.append[i].sort_no + '">' + jsonObj.append[i].title + '</li>');
-        //             }
-        //             getListSwitch = true;
-        //         },
-        //         error: function() {
-        //             getListSwitch = true;
-        //             alert('error');
-        //         }
-        //     });
-        // }
     }
     
     function readMsg (smt) {
@@ -213,22 +201,6 @@
                 jqxhr.abort();
             }
         });
-        // $.ajax({
-        //     url: '//music2gether.lo:50126/read',
-        //     type: 'get',
-        //     dataType: 'jsonp',
-        //     data: {smt: smt},
-        //     jsonp: 'callback',
-        //     jsonpCallback: 'readMsgBack',
-        //     success: function (jsonObj) {
-        //         if (jsonObj.result == 0) {
-        //             speaker(jsonObj.message);
-        //         }
-        //         readMsg(jsonObj.smt);
-        //     },
-        //     error: function (jqxhr, textStatus, errorTHrown) {
-        //     }
-        // });
     }
 </script>
 <script>
@@ -270,7 +242,6 @@
                         alert(jsonObj.reason);
                         return;
                     }
-                    // getList();
                 }
             });
             $('#url').val('');
@@ -290,17 +261,13 @@
                     qid: qid
                 },
                 success: function(jsonObj) {
-                    // _this.remove();
-                    // getList();
+                    
                 },
                 error: function() {
 
                 }
             });
         });
-        
-        // setInterval(getList, 8000);
-        // getList();
         readMsg(0);
     });
 </script>
