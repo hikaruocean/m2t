@@ -50,13 +50,13 @@ class ListenerConnection
             $no++;
         }
         if (!isset($reqInfo[1])) {
-            $this->responseError();
+            $this->responseError('http header error');
             return;
         }
         $pathInfo = explode('?', $reqInfo[1], 2);
         $queryParams = array();
         if (!isset($pathInfo[1])) {
-            $this->responseError();
+            $this->responseError('req params required');
             return;
         }
         parse_str($pathInfo[1], $queryParams);
@@ -65,12 +65,16 @@ class ListenerConnection
             case 'send':
                 echo 'send' . PHP_EOL;
                 if (!isset($queryParams['data']) || !isset($queryParams['channel'])) {
-                    $this->responseError();
+                    $this->responseError('send action require data, channel');
                     return;
                 }
                 $smt = microtime(true);
                 $sendData = json_decode(urldecode($queryParams['data']), true);
                 $sendChannel = json_decode(urldecode($queryParams['channel']), true);
+                if (!$sendData || !$sendChannel) {
+                    $this->responseError('data, channel need be json format');
+                    return;
+                }
                 // var_dump($sendData, $sendChannel);
                 /**
                 * 傳送資料連線本身, 立刻回應 request 端成功
@@ -107,10 +111,14 @@ class ListenerConnection
                 * 指定 channelId
                 */
                 if (!isset($queryParams['channel'])) {
-                    $this->responseError();
+                    $this->responseError('send action require channel');
                     return;
                 }
                 $this->channel = json_decode(urldecode($queryParams['channel']), true);
+                if (!$this->channel) {
+                    $this->responseError('channel need be json format');
+                    return;
+                }
                 foreach ($this->channel as $channelId) {
                     $this->listener->channel[$channelId]['conn'][$this->fd] = $this;
                 }
@@ -148,8 +156,9 @@ class ListenerConnection
         }
     }
     
-    private function responseError ()
+    private function responseError ($err = 'null')
     {
+        echo 'input data invalid message: [' . $err . ']' . PHP_EOL;
         $eb = new \EventBuffer();
         $eb->add($this->listener->header200 . json_encode(array('result' => -1)));
         $this->bev->output->addBuffer($eb);
