@@ -218,7 +218,6 @@
                 data: {message: $('#message').val()},
                 success: function (jsonObj) {
                     if (jsonObj.result != 0) {
-                        return;
                     }
                     $('#message').val('');
                 },
@@ -239,7 +238,7 @@
                 },
                 success: function(jsonObj) {
                     if (jsonObj.result != 0) {
-                        alert(jsonObj.reason);
+                        alert('URL is not from YOUTUBE');
                         return;
                     }
                 }

@@ -78,8 +78,19 @@ class Panel extends \Conpoz\App\Controller\BaseController
         $params = $bag->req->getPost(array('id', 'url', 'comment'));
         $result = parse_url(trim($params['url']));
         $data = array();
-        parse_str($result['query'], $data);
-        
+        switch ($result['host']) {
+            case 'www.youtube.com':
+                parse_str($result['query'], $data);
+                break;
+            case 'youtu.be':
+                $data['v'] = ltrim($result['path'], '/');
+                break;
+            default :
+                echo json_encode(array('result' => -1));
+                return;
+                break;
+        }
+        var_dump($result, $data['v']);
         $bag->dbquery->begin();
         $rh = $bag->dbquery->execute("SELECT id, title, info_result_code, order_count FROM video_list WHERE video_id = :videoId FOR UPDATE", array('videoId' => $data['v']));
         if ($rh->rowCount() > 0) {

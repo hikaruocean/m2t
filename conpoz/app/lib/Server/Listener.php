@@ -123,7 +123,7 @@ class Listener
             }
             
             if ($eTimestamp > time()) {
-                $e->addTimer(1);
+                $e->addTimer(0.5);
                 return;
             }
             $eb = new \EventBuffer();
