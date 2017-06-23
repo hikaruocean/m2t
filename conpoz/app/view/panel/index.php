@@ -39,6 +39,7 @@
     var firstSortNo = 0;
     var lastSortNo = 0;
     var getListSwitch = true;
+    var lastPlayQueueId = 0;
     
     function createPlayer(videoId) {
         player = new YT.Player('player', {
@@ -129,17 +130,22 @@
                         // }
                         // break;
                     case 0:
-                        if (player == null) {
-                            createPlayer(jsonObj.videoId);
+                        if (lastPlayQueueId == jsonObj.id) {
+                            setTimeout(loadNextVideo, noListReloadSecond);
                         } else {
-                            player.loadVideoById(jsonObj.videoId);
-                        }
-                        document.title = 'ON AIR';
-                        speaker('現在這首歌是' + jsonObj.title);
-                        if (jsonObj.comment.length != 0) {
-                            setTimeout(function() {
-                                speaker(jsonObj.comment);
-                            }, commetDelaySecond);
+                            if (player == null) {
+                                createPlayer(jsonObj.videoId);
+                            } else {
+                                player.loadVideoById(jsonObj.videoId);
+                            }
+                            document.title = 'ON AIR';
+                            lastPlayQueueId = jsonObj.id;
+                            speaker('現在這首歌是' + jsonObj.title);
+                            if (jsonObj.comment.length != 0) {
+                                setTimeout(function() {
+                                    speaker(jsonObj.comment);
+                                }, commetDelaySecond);
+                            }
                         }
                         break;
                 }
