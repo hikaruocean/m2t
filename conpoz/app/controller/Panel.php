@@ -44,17 +44,19 @@ class Panel extends \Conpoz\App\Controller\BaseController
     public function loadNextVideoAction ($bag)
     {
         $params = $bag->req->getPost(array('id'));
+        
         if ($params['id'] == $bag->sess->user_id) {
+            $bag->dbquery->update('play_queue', array('status' => 1), "status = :status", array('status' => 2));
             $rh = $bag->dbquery->execute("SELECT id, info_result_code, video_id, title, comment FROM play_queue WHERE user_id = :userId AND status = 0 ORDER BY sort_no ASC LIMIT 1", array('userId' => (int) $params['id']));
             $obj = $rh->fetch();
             if (!$obj) {
                 echo json_encode(array('result' => -2));
                 return;
             }
-            $bag->dbquery->update('play_queue', array('status' => 1), "id = :id AND user_id = :userId", array('id' => (int) $obj->id, 'userId' => (int) $params['id']));
+            $bag->dbquery->update('play_queue', array('status' => 2), "id = :id AND user_id = :userId", array('id' => (int) $obj->id, 'userId' => (int) $params['id']));
             
         } else {
-            $rh = $bag->dbquery->execute("SELECT id, info_result_code, video_id, title, comment FROM play_queue WHERE user_id = :userId AND status = 1 ORDER BY sort_no DESC LIMIT 1", array('userId' => (int) $params['id']));
+            $rh = $bag->dbquery->execute("SELECT id, info_result_code, video_id, title, comment FROM play_queue WHERE user_id = :userId AND status = 2", array('userId' => (int) $params['id']));
             $obj = $rh->fetch();
             if (!$obj) {
                 echo json_encode(array('result' => -2));
@@ -90,7 +92,6 @@ class Panel extends \Conpoz\App\Controller\BaseController
                 return;
                 break;
         }
-        var_dump($result, $data['v']);
         $bag->dbquery->begin();
         $rh = $bag->dbquery->execute("SELECT id, title, info_result_code, order_count FROM video_list WHERE video_id = :videoId FOR UPDATE", array('videoId' => $data['v']));
         if ($rh->rowCount() > 0) {
