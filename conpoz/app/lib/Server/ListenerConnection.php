@@ -3,7 +3,7 @@ namespace Conpoz\App\Lib\Server;
 
 class ListenerConnection 
 {
-    public $bev, $base, $listener, $channel = array(), $fd, $e;
+    public $bev, $base, $listener, $channel = array(), $fd, $e, $closeFlag = true, $HEL;
 
     public function __destruct () 
     {
@@ -14,6 +14,7 @@ class ListenerConnection
     public function __construct ($base, &$fd, &$e, &$listener) 
     {
         $this->listener = &$listener;
+        $this->HEL = $listener->HEL;
         $this->fd = &$fd;
         $this->e = &$e;
         $this->base = $base;
@@ -80,7 +81,8 @@ class ListenerConnection
                 * 傳送資料連線本身, 立刻回應 request 端成功
                 */
                 $eb = new \EventBuffer();
-                $eb->add($this->listener->header200 . json_encode(array('result' => 0, 'smt' => $smt)));
+                $payload = json_encode(array('result' => 0, 'smt' => $smt));
+                $eb->add($this->listener->header200 . base_convert(strlen($payload), 10, 16) . $this->HEL . $payload . $this->HEL . '0' . $this->HEL . $this->HEL);
                 $bev->output->addBuffer($eb);
                 if (is_string($sendChannel) && $sendChannel == '*') {
                     /**
@@ -119,20 +121,23 @@ class ListenerConnection
                     $this->responseError('channel need be json format');
                     return;
                 }
+                if ($this->listener->keepAlive === true) {
+                    $this->closeFlag = false;
+                }
                 foreach ($this->channel as $channelId) {
                     $this->listener->channel[$channelId]['conn'][$this->fd] = $this;
                 }
                 break;
             default:
                 $eb = new \EventBuffer();
-                $eb->add($this->listener->header404);
+                $eb->add($this->listener->header404 . '0' . $this->HEL . $this->HEL);
                 $bev->output->addBuffer($eb);
         }
     }
     
     public function writeCallback ($bev)
     {
-        if (0 === $bev->output->length) {
+        if (0 === $bev->output->length && $this->closeFlag) {
             $this->kill();
         }
     }
@@ -160,7 +165,8 @@ class ListenerConnection
     {
         echo 'input data invalid message: [' . $err . ']' . PHP_EOL;
         $eb = new \EventBuffer();
-        $eb->add($this->listener->header200 . json_encode(array('result' => -1)));
+        $payload = json_encode(array('result' => -1));
+        $eb->add($this->listener->header200 . base_convert(strlen($payload), 10, 16) . $this->HEL . $payload . $this->HEL . '0' . $this->HEL . $this->HEL);
         $this->bev->output->addBuffer($eb);
         return;
     }

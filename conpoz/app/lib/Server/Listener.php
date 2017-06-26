@@ -8,14 +8,10 @@ class Listener
         $socket;
     public $conn = array();
     public $channel = array();
-    public $header404 = 'HTTP/1.1 404 NOT FOUND' . PHP_EOL .
-                'Server: LPServer/1.0.0' . PHP_EOL .
-                'Content-Type: text/html; charset=utf-8'  . PHP_EOL .
-                'Connection: close' . PHP_EOL;
-    public $header200 = 'HTTP/1.1 200 OK' . PHP_EOL .
-                'Server: LPServer/1.0.0' . PHP_EOL .
-                'Content-Type: application/json'  . PHP_EOL .
-                'Connection: close' . PHP_EOL;
+    public $header404 = '';
+    public $header200 = '';
+    public $keepAlive = true;
+    public $HEL = "\r\n";
 
     public function __destruct () 
     {
@@ -28,9 +24,25 @@ class Listener
         * $params['port'] = 50126
         * $params['allowOrigin'] = '*'
         */
-        $params = array_merge(array('port' => '50126', 'allowOrigin' => '*'), $params);
-        $this->header404 .= 'Access-Control-Allow-Origin: ' . $params['allowOrigin'] . PHP_EOL . PHP_EOL;
-        $this->header200 .= 'Access-Control-Allow-Origin: ' . $params['allowOrigin'] . PHP_EOL . PHP_EOL;
+        $params = array_merge(array('port' => '50126', 'allowOrigin' => '*', 'keepAlive' => false), $params);
+        $this->keepAlive = $params['keepAlive'];
+        if ($this->keepAlive === true) {
+            $connectionHeader = 'Connection: keep-alive';
+        } else {
+            $connectionHeader = 'Connection: close';
+        }
+        $this->header404 = 'HTTP/1.1 404 NOT FOUND' . PHP_EOL .
+                    'Server: LPServer/1.0.0' . PHP_EOL .
+                    'Content-Type: text/html; charset=utf-8'  . PHP_EOL .
+                    'Transfer-Encoding: chunked' . PHP_EOL .
+                    'Connection: close' . PHP_EOL . 
+                    'Access-Control-Allow-Origin: ' . $params['allowOrigin'] . PHP_EOL . PHP_EOL;
+        $this->header200 = 'HTTP/1.1 200 OK' . PHP_EOL .
+                    'Server: LPServer/1.0.0' . PHP_EOL .
+                    'Content-Type: application/json'  . PHP_EOL .
+                    'Transfer-Encoding: chunked' . PHP_EOL .
+                    $connectionHeader . PHP_EOL . 
+                    'Access-Control-Allow-Origin: ' . $params['allowOrigin'] . PHP_EOL . PHP_EOL;
         
         
         $this->base = new \EventBase();
@@ -87,7 +99,7 @@ class Listener
         // $e->data = $e;
         // $e->addTimer(0.4);
         $eTimestamp = time() + 60;
-        $e = \Event::Timer($this->base, function ($data) use ($eTimestamp, $fd, &$e) {
+        $e = \Event::Timer($this->base, function ($data) use (&$eTimestamp, $fd, &$e) {
             $readyAddBuffer = array();
             $channel = $this->conn[$fd]->channel;
             foreach ($channel as $channelId) {
@@ -116,19 +128,33 @@ class Listener
             if (!empty($readyAddBuffer)) {
                 foreach ($readyAddBuffer as $rfd => &$resultAry) {
                     $eb = new \EventBuffer();
-                    $eb->add($this->header200 . json_encode(array('result' => 0, 'data' => $resultAry, 'smt' => microtime(true))));
+                    $payload = json_encode(array('result' => 0, 'data' => $resultAry, 'smt' => microtime(true)));
+                    $eb->add($this->header200 . base_convert(strlen($payload), 10, 16) . $this->HEL . $payload . $this->HEL . '0' . $this->HEL . $this->HEL);
                     $this->conn[$rfd]->bev->output->addBuffer($eb);
                 }
                 unset($resultAry);
             }
             
-            if ($eTimestamp > time()) {
-                $e->addTimer(0.5);
+            if ($this->keepAlive === false) {
+                if ($eTimestamp > time()) {
+                    $e->addTimer(0.5);
+                    return;
+                }
+                $eb = new \EventBuffer();
+                $payload = json_encode(array('result' => -1, 'smt' => microtime(true)));
+                $eb->add($this->header200 . base_convert(strlen($payload), 10, 16) . $this->HEL . $payload . $this->HEL . '0' . $this->HEL . $this->HEL);
+                $this->conn[$fd]->bev->output->addBuffer($eb);
                 return;
             }
-            $eb = new \EventBuffer();
-            $eb->add($this->header200 . json_encode(array('result' => -1, 'smt' => microtime(true))));
-            $this->conn[$fd]->bev->output->addBuffer($eb);
+            
+            if ($eTimestamp <= time()) {
+                $eTimestamp = time() + 60;
+                $eb = new \EventBuffer();
+                $payload = json_encode(array('result' => -1, 'smt' => microtime(true)));
+                $eb->add($this->header200 . base_convert(strlen($payload), 10, 16) . $this->HEL . $payload . $this->HEL . '0' . $this->HEL . $this->HEL);
+                $this->conn[$fd]->bev->output->addBuffer($eb);
+            }
+            $e->addTimer(0.5);
         });
         $e->data = $e;
         $e->addTimer(0.1);

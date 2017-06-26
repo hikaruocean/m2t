@@ -11,7 +11,7 @@ class Message extends \Conpoz\App\Controller\BaseController
             return;
         }
         $payload = 'data=' . urlencode(json_encode(array('message' => $message))) . '&channel=' . urlencode(json_encode(array('global_message')));
-        $resultAry = $bag->net->httpGet('http://127.0.0.1:50126/send?' . $payload);
+        $resultAry = $bag->net->httpGet('http://127.0.0.1:50126/send?' . $payload, array('Connection: keep-alive'));
         echo $resultAry['result'];
     }
 }
