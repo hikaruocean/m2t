@@ -10,7 +10,7 @@ class Message extends \Conpoz\App\Controller\BaseController
             echo json_encode(array('result' => -1));
             return;
         }
-        $payload = 'data=' . urlencode(json_encode(array('message' => $message))) . '&channel=' . urlencode(json_encode(array('global_message')));
+        $payload = $bag->lpPack->payload(array('global_message'), array('message' => $message));
         $resultAry = $bag->net->httpGet('http://127.0.0.1:50126/send?' . $payload, array('Connection: keep-alive'));
         echo $resultAry['result'];
     }

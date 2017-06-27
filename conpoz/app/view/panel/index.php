@@ -1,5 +1,6 @@
 <script>
-    var channelUserInfo = <?php echo json_encode($channelUserInfo);?>
+    var channelUserInfo = <?php echo json_encode($channelUserInfo);?>;
+    var lpServerInfo = <?php echo json_encode($lpServerInfo);?>;
 </script>
 <script src="http://code.responsivevoice.org/responsivevoice.js"></script>
 <div>
@@ -172,38 +173,45 @@
         });
     }
     
-    function readMsg (smt) {
-        var channelString = JSON.stringify(['video_channel_' + channelUserInfo.id, 'global_message']);
+    function readMsg (smt, ts, tk) {
+        var channelString = JSON.stringify(lpServerInfo.channel);
         $.ajax({
             url: '//' + window.location.host + ':50126/read',
             type: 'get',
             dataType: 'json',
-            data: {channel: channelString, smt: smt},
+            data: {channel: channelString, ts: ts, tk: tk, smt: smt},
             success: function (jsonObj) {
-                if (jsonObj.result == 0) {
-                    for (i in jsonObj.data) {
-                        for (key in jsonObj.data[i]) {
-                            switch (key) {
-                                case 'message':
-                                    speaker(jsonObj.data[i][key]);
-                                    break;
-                                case 'videoList':
-                                    $('.v-item').remove();
-                                    addItemStr = '';
-                                    for (j in jsonObj.data[i][key]) {
-                                        jsonObj.data[i][key][j]
-                                        addItemStr += '<li class="v-item" qid="' + jsonObj.data[i][key][j].id + '" sort_no="' + jsonObj.data[i][key][j].sort_no + '">' + jsonObj.data[i][key][j].title + '</li>';
-                                    }
-                                    $('#player-list-ul').append(addItemStr);
-                                    break;
+                switch (jsonObj.result) {
+                    case 0:
+                        for (i in jsonObj.data) {
+                            for (key in jsonObj.data[i]) {
+                                switch (key) {
+                                    case 'message':
+                                        speaker(jsonObj.data[i][key]);
+                                        break;
+                                    case 'videoList':
+                                        $('.v-item').remove();
+                                        addItemStr = '';
+                                        for (j in jsonObj.data[i][key]) {
+                                            jsonObj.data[i][key][j]
+                                            addItemStr += '<li class="v-item" qid="' + jsonObj.data[i][key][j].id + '" sort_no="' + jsonObj.data[i][key][j].sort_no + '">' + jsonObj.data[i][key][j].title + '</li>';
+                                        }
+                                        $('#player-list-ul').append(addItemStr);
+                                        break;
+                                }
                             }
                         }
-                    }
+                        readMsg(jsonObj.smt, jsonObj.ts, jsonObj.tk);
+                        break;
+                    case -1:
+                        readMsg(jsonObj.smt, jsonObj.ts, jsonObj.tk);
+                        break;
+                    case -2:
+                        break;
                 }
-                readMsg(jsonObj.smt);
             },
             error: function (jqxhr, textStatus, errorTHrown) {
-                setTimeout(readMsg, readMsgRetrySecond);
+                setTimeout(function(){readMsg();}, readMsgRetrySecond);
                 jqxhr.abort();
             }
         });
@@ -273,6 +281,6 @@
                 }
             });
         });
-        readMsg(0);
+        readMsg(0, lpServerInfo.ts, lpServerInfo.tk);
     });
 </script>

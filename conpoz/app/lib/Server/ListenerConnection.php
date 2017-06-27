@@ -65,9 +65,24 @@ class ListenerConnection
         switch ($pathSegment[0]) {
             case 'send':
                 echo 'send' . PHP_EOL;
+                
                 if (!isset($queryParams['data']) || !isset($queryParams['channel'])) {
                     $this->responseError('send action require data, channel');
                     return;
+                }
+                
+                /**
+                * 使用 hashKey
+                */
+                if (!is_null($this->listener->hashKey)) {
+                    if (!isset($queryParams['tk']) || !isset($queryParams['ts'])) {
+                        $this->responseError('send action require tk, ts');
+                        return;
+                    }
+                    if (md5(urldecode($queryParams['channel']) . $queryParams['ts'] . $this->listener->hashKey) !== $queryParams['tk'] || (((int) $queryParams['ts'] + 15) < time())) {
+                        $this->responseError('send action tk failed');
+                        return;
+                    }
                 }
                 $smt = microtime(true);
                 $sendData = json_decode(urldecode($queryParams['data']), true);
@@ -115,6 +130,20 @@ class ListenerConnection
                 if (!isset($queryParams['channel'])) {
                     $this->responseError('send action require channel');
                     return;
+                }
+                
+                /**
+                * 使用 hashKey
+                */
+                if (!is_null($this->listener->hashKey)) {
+                    if (!isset($queryParams['tk']) || !isset($queryParams['ts'])) {
+                        $this->responseError('read action require tk, ts');
+                        return;
+                    }
+                    if (md5(urldecode($queryParams['channel']) . $queryParams['ts'] . $this->listener->hashKey) !== $queryParams['tk'] || (((int) $queryParams['ts'] + 15) < time())) {
+                        $this->responseError('read action tk failed');
+                        return;
+                    }
                 }
                 $this->channel = json_decode(urldecode($queryParams['channel']), true);
                 if (!$this->channel) {
@@ -165,7 +194,7 @@ class ListenerConnection
     {
         echo 'input data invalid message: [' . $err . ']' . PHP_EOL;
         $eb = new \EventBuffer();
-        $payload = json_encode(array('result' => -1));
+        $payload = json_encode(array('result' => -2));
         $eb->add($this->listener->header200 . base_convert(strlen($payload), 10, 16) . $this->HEL . $payload . $this->HEL . '0' . $this->HEL . $this->HEL);
         $this->bev->output->addBuffer($eb);
         return;
@@ -181,8 +210,10 @@ class ListenerConnection
         $this->e->delTimer();
         $this->e = null;
         unset($this->listener->conn[$this->fd]);
-        foreach ($this->channel as $channelId) {
-            unset($this->listener->channel[$channelId]['conn'][$this->fd]);
+        if (is_array($this->channel)) {
+            foreach ($this->channel as $channelId) {
+                unset($this->listener->channel[$channelId]['conn'][$this->fd]);
+            }
         }
     }
 }

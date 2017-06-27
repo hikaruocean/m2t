@@ -10,7 +10,8 @@ class Listener
     public $channel = array();
     public $header404 = '';
     public $header200 = '';
-    public $keepAlive = true;
+    public $keepAlive;
+    public $hashKey;
     public $HEL = "\r\n";
 
     public function __destruct () 
@@ -24,8 +25,9 @@ class Listener
         * $params['port'] = 50126
         * $params['allowOrigin'] = '*'
         */
-        $params = array_merge(array('port' => '50126', 'allowOrigin' => '*', 'keepAlive' => false), $params);
+        $params = array_merge(array('port' => '50126', 'allowOrigin' => '*', 'keepAlive' => false, 'hashKey' => null), $params);
         $this->keepAlive = $params['keepAlive'];
+        $this->hashKey = $params['hashKey'];
         if ($this->keepAlive === true) {
             $connectionHeader = 'Connection: keep-alive';
         } else {
@@ -128,7 +130,12 @@ class Listener
             if (!empty($readyAddBuffer)) {
                 foreach ($readyAddBuffer as $rfd => &$resultAry) {
                     $eb = new \EventBuffer();
-                    $payload = json_encode(array('result' => 0, 'data' => $resultAry, 'smt' => microtime(true)));
+                    $payloadAry = array('result' => 0, 'data' => $resultAry, 'smt' => microtime(true));
+                    if (!is_null($this->hashKey)) {
+                        $payloadAry['ts'] = time();
+                        $payloadAry['tk'] = md5(json_encode($this->conn[$rfd]->channel) . $payloadAry['ts'] . $this->hashKey);
+                    }
+                    $payload = json_encode($payloadAry);
                     $eb->add($this->header200 . base_convert(strlen($payload), 10, 16) . $this->HEL . $payload . $this->HEL . '0' . $this->HEL . $this->HEL);
                     $this->conn[$rfd]->bev->output->addBuffer($eb);
                 }
@@ -141,7 +148,12 @@ class Listener
                     return;
                 }
                 $eb = new \EventBuffer();
-                $payload = json_encode(array('result' => -1, 'smt' => microtime(true)));
+                $payloadAry = array('result' => -1, 'smt' => microtime(true));
+                if (!is_null($this->hashKey)) {
+                    $payloadAry['ts'] = time();
+                    $payloadAry['tk'] = md5(json_encode($this->conn[$fd]->channel) . $payloadAry['ts'] . $this->hashKey);
+                }
+                $payload = json_encode($payloadAry);
                 $eb->add($this->header200 . base_convert(strlen($payload), 10, 16) . $this->HEL . $payload . $this->HEL . '0' . $this->HEL . $this->HEL);
                 $this->conn[$fd]->bev->output->addBuffer($eb);
                 return;
@@ -150,7 +162,12 @@ class Listener
             if ($eTimestamp <= time()) {
                 $eTimestamp = time() + 60;
                 $eb = new \EventBuffer();
-                $payload = json_encode(array('result' => -1, 'smt' => microtime(true)));
+                $payloadAry = array('result' => -1, 'smt' => microtime(true));
+                if (!is_null($this->hashKey)) {
+                    $payloadAry['ts'] = time();
+                    $payloadAry['tk'] = md5(json_encode($this->conn[$fd]->channel) . $payloadAry['ts'] . $this->hashKey);
+                }
+                $payload = json_encode($payloadAry);
                 $eb->add($this->header200 . base_convert(strlen($payload), 10, 16) . $this->HEL . $payload . $this->HEL . '0' . $this->HEL . $this->HEL);
                 $this->conn[$fd]->bev->output->addBuffer($eb);
             }

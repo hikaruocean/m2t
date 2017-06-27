@@ -53,4 +53,7 @@ $config->ACL = array(
         array('Landing', '*'),
     ),
 );
+$config->LPServer = array(
+    'hashKey' => 'hikaru'
+);
 return $config;

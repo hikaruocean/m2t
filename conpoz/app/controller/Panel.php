@@ -35,6 +35,15 @@ class Panel extends \Conpoz\App\Controller\BaseController
         $channelUserInfo = null;
         $selfChannel = null;
         $this->getChannelUserId($channelUserInfo, $selfChannel);
+        
+        $channelAry = array('video_channel_' . $channelUserInfo->id, 'global_message');
+        $ts = time();
+        $tk = md5(json_encode($channelAry) . $ts . $bag->config->LPServer['hashKey']);
+        $lpServerInfo = array(
+            'channel' => $channelAry,
+            'ts' => $ts,
+            'tk' => $tk
+        );
         $this->videoListChange($channelUserInfo->id);
         $this->view->addView('/htmlTemplate');
         $this->view->addView('/panel/index');
@@ -138,7 +147,8 @@ class Panel extends \Conpoz\App\Controller\BaseController
         while ($obj = $rh->fetch()) {
             $resultAry[] = $obj;
         }
-        $payload = 'data=' . urlencode(json_encode(array('videoList' => $resultAry))) . '&channel=' . urlencode(json_encode(array('video_channel_' . $userId)));
+        $payload = $this->bag->lpPack->payload(array('video_channel_' . $userId), array('videoList' => $resultAry));
+        // $payload = 'data=' . urlencode(json_encode(array('videoList' => $resultAry))) . '&channel=' . urlencode(json_encode(array('video_channel_' . $userId)));
         $resultAry = $bag->net->httpGet('http://127.0.0.1:50126/send?' . $payload);
     }
     
