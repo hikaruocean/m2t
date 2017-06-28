@@ -53,7 +53,7 @@ $bag->validator = function () {
 };
 
 $bag->lpPack = function () use ($config) {
-    return new \Conpoz\App\Lib\Server\Pack($config->LPServer['hashKey']);
+    return new \Conpoz\App\Lib\LPServer\Pack($config->LPServer['hashKey']);
 };
 
 return $bag;

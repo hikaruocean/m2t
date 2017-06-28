@@ -1,5 +1,5 @@
 <?php 
-namespace Conpoz\App\Lib\Server;
+namespace Conpoz\App\Lib\LPServer;
 
 class ListenerConnection 
 {
@@ -99,6 +99,26 @@ class ListenerConnection
                 $payload = json_encode(array('result' => 0, 'smt' => $smt));
                 $eb->add($this->listener->header200 . base_convert(strlen($payload), 10, 16) . $this->HEL . $payload . $this->HEL . '0' . $this->HEL . $this->HEL);
                 $bev->output->addBuffer($eb);
+                
+                /**
+                * 處理 cluster 通訊
+                */
+                if (!is_null($this->listener->centerHost)) {
+                    $toUpstreamPayload = json_encode(array('channel' => $sendChannel, 'data' => $sendData)) . $this->HEL;
+                    //send pack to upstream
+                    echo 'send to center : ' . $toUpstreamPayload;
+                    $retryCount = 0;
+                    while(($sendBytes = socket_write($this->listener->centerConn, $toUpstreamPayload, strlen($toUpstreamPayload))) === false && $retryCount < 3) {
+                        $this->listener->connectToCenter();
+                        $retryCount ++;
+                    }
+                    if ($sendBytes === false) {
+                        echo 'send to center failed' . $this->HEL;
+                    } else {
+                        echo 'send to center ok' . $this->HEL;
+                    }
+                }
+                
                 if (is_string($sendChannel) && $sendChannel == '*') {
                     /**
                     * online channel broadcast case

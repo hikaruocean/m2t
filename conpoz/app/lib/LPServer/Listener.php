@@ -1,5 +1,5 @@
 <?php
-namespace Conpoz\App\Lib\Server;
+namespace Conpoz\App\Lib\LPServer;
 
 class Listener 
 {
@@ -13,6 +13,9 @@ class Listener
     public $keepAlive;
     public $hashKey;
     public $HEL = "\r\n";
+    public $centerHost;
+    public $centerPort;
+    public $centerConn;
 
     public function __destruct () 
     {
@@ -25,9 +28,17 @@ class Listener
         * $params['port'] = 50126
         * $params['allowOrigin'] = '*'
         */
-        $params = array_merge(array('port' => '50126', 'allowOrigin' => '*', 'keepAlive' => false, 'hashKey' => null), $params);
+        $params = array_merge(array('port' => '50126', 'allowOrigin' => '*', 'keepAlive' => false, 'hashKey' => null, 'centerHost' => null, 'centerPort' => '50126'), $params);
         $this->keepAlive = $params['keepAlive'];
         $this->hashKey = $params['hashKey'];
+        $this->centerHost = $params['centerHost'];
+        $this->centerPort = $params['centerPort'];
+        /**
+        * 啟用 cluster，對 center 進行 tcp 連線
+        */
+        if (!is_null($this->centerHost)) {
+            $this->centerConn = $this->connectToCenter();
+        }
         if ($this->keepAlive === true) {
             $connectionHeader = 'Connection: keep-alive';
         } else {
@@ -177,7 +188,7 @@ class Listener
         $e->addTimer(0.1);
         
         $base = $this->base;
-        $this->conn[$fd] = new \Conpoz\App\Lib\Server\ListenerConnection($base, $fd, $e, $this);
+        $this->conn[$fd] = new \Conpoz\App\Lib\LPServer\ListenerConnection($base, $fd, $e, $this);
         
     }
 
@@ -189,5 +200,21 @@ class Listener
             \EventUtil::getLastSocketErrno(),
             \EventUtil::getLastSocketError());
         $base->exit(NULL);
+    }
+    
+    public function connectToCenter ()
+    {
+        $address = gethostbyname($this->centerHost);
+        $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        if ($socket === false) {
+            echo __METHOD__ . " socket_create() failed: reason: " . socket_strerror(socket_last_error()) . PHP_EOL;
+            exit(1);
+        }
+        $result = socket_connect($socket, $address, $this->centerPort);
+        if ($result === false) {
+            echo __METHOD__ . "socket_connect() failed.\nReason: ($result) " . socket_strerror(socket_last_error($socket)) . PHP_EOL;
+            exit(1);
+        }
+        return $socket;
     }
 }

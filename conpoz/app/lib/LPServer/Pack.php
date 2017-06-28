@@ -1,5 +1,5 @@
 <?php 
-namespace Conpoz\App\Lib\Server;
+namespace Conpoz\App\Lib\LPServer;
 
 class Pack 
 {
