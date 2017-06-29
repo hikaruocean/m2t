@@ -32,12 +32,14 @@ class ListenerConnection
     {
         while (!is_null($line = $bev->input->readLine(\EventBuffer::EOL_CRLF))) {
             echo 'recv data : ' . $line . $this->HEL;
+            $obj = json_decode($line);
+            $paylaod = 'GET /center?channel=' . urlencode(json_encode($obj->channel))  . '&data=' .  urlencode(json_encode($obj->data))  . ' HTTP/1.1' . $this->HEL . $this->HEL;
             foreach ($this->listener->conn as $fd => $conn) {
                 if ($fd == $this->fd) {
                     continue;
                 }
                 $eb = new \EventBuffer();
-                $eb->add($line . $this->HEL);
+                $eb->add($paylaod);
                 $conn->bev->output->addBuffer($eb);
             }
         }

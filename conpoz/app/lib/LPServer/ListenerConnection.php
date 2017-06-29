@@ -63,6 +63,8 @@ class ListenerConnection
         parse_str($pathInfo[1], $queryParams);
         $pathSegment = explode('/', trim($pathInfo[0], '/'));
         switch ($pathSegment[0]) {
+            case 'centerMessage':
+                break;
             case 'send':
                 echo 'send' . PHP_EOL;
                 

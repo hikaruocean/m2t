@@ -13,7 +13,7 @@ class LPServer
     public function centerAction ($bag)
     {
         $port = 50000;
-        $l = new \Conpoz\App\Lib\LPServer\Listener(array('port' => $port));
+        $l = new \Conpoz\App\Lib\LPCenter\Listener(array('port' => $port));
         $l->dispatch();
     }
 }
