@@ -208,60 +208,91 @@ class Listener
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         if ($socket === false) {
             echo __METHOD__ . " socket_create() failed: reason: " . socket_strerror(socket_last_error()) . PHP_EOL;
-            exit(1);
+            $e = \Event::Timer($this->base, function ($data) {
+                $this->centerBev = $this->connectToCenter($this->centerConn);
+            });
+            $e->data = $e;
+            $e->addTimer(5);
+            return;
         }
         $result = socket_connect($socket, $address, $this->centerPort);
         if ($result === false) {
             echo __METHOD__ . "socket_connect() failed.\nReason: ($result) " . socket_strerror(socket_last_error($socket)) . PHP_EOL;
-            exit(1);
+            $e = \Event::Timer($this->base, function ($data) {
+                $this->centerBev = $this->connectToCenter($this->centerConn);
+            });
+            $e->data = $e;
+            $e->addTimer(5);
+            return;
         }
-        $bev = new \EventBufferEvent($this->base, $socket, \EventBufferEvent::OPT_CLOSE_ON_FREE | \EventBufferEvent::OPT_DEFER_CALLBACKS, function ($bev, $ctx) {
-            $no = 0;
-            $header = array();
-            $echo = '';
-            while (!is_null($line = $bev->input->readLine(\EventBuffer::EOL_CRLF))) {
-                if ($no === 0) {
-                    $reqInfo = explode(' ', $line);
-                } else {
-                    $tempData = explode(': ', $line, 2);
-                    if (count($tempData) == 2) {
-                        $header[$tempData[0]] = $tempData[1];
-                    } else {
-                        $header[$tempData[0]] = null;
-                    }
-                }
-                $echo .= $line;
-                $no++;
-            }
-            if (!isset($reqInfo[1])) {
-                return;
-            }
-            $pathInfo = explode('?', $reqInfo[1], 2);
-            $queryParams = array();
-            if (!isset($pathInfo[1])) {
-                return;
-            }
-            parse_str($pathInfo[1], $queryParams);
-            $pathSegment = explode('/', trim($pathInfo[0], '/'));
-            switch ($pathSegment[0]) {
-                case 'centerMessage':
-                    if (!isset($queryParams['data']) || !isset($queryParams['channel'])) {
-                        return;
-                    }
-                    $sendData = json_decode(urldecode($queryParams['data']), true);
-                    $sendChannel = json_decode(urldecode($queryParams['channel']), true);
-                    if (!$sendData || !$sendChannel) {
-                        return;
-                    }
-                    foreach ($sendChannel as $channelId) {
-                        $this->listener->channel[$channelId]['tempBuffer'][] = $sendData;
-                    }
-                    var_dump($this->listener->channel[$channelId]['tempBuffer']);
-                    echo $this->HEL;
-                    break;
-            }
-        }, null, null);
+        $bev = new \EventBufferEvent($this->base, $socket, \EventBufferEvent::OPT_CLOSE_ON_FREE | \EventBufferEvent::OPT_DEFER_CALLBACKS);
+        $bev->setCallbacks(array($this, 'readFromCenter'), null, array($this, 'eventFromCenter'), null);
         $bev->enable(\Event::READ | \Event::WRITE);
         return $bev;
+    }
+    
+    public function readFromCenter ($bev, $ctx) 
+    {
+        $no = 0;
+        $header = array();
+        $echo = '';
+        while (!is_null($line = $bev->input->readLine(\EventBuffer::EOL_CRLF))) {
+            if ($no === 0) {
+                $reqInfo = explode(' ', $line);
+            } else {
+                $tempData = explode(': ', $line, 2);
+                if (count($tempData) == 2) {
+                    $header[$tempData[0]] = $tempData[1];
+                } else {
+                    $header[$tempData[0]] = null;
+                }
+            }
+            $echo .= $line;
+            $no++;
+        }
+        if (!isset($reqInfo[1])) {
+            return;
+        }
+        $pathInfo = explode('?', $reqInfo[1], 2);
+        $queryParams = array();
+        if (!isset($pathInfo[1])) {
+            return;
+        }
+        parse_str($pathInfo[1], $queryParams);
+        $pathSegment = explode('/', trim($pathInfo[0], '/'));
+        switch ($pathSegment[0]) {
+            case 'centerMessage':
+                if (!isset($queryParams['data']) || !isset($queryParams['channel'])) {
+                    return;
+                }
+                $sendData = json_decode(urldecode($queryParams['data']), true);
+                $sendChannel = json_decode(urldecode($queryParams['channel']), true);
+                if (!$sendData || !$sendChannel) {
+                    return;
+                }
+                foreach ($sendChannel as $channelId) {
+                    $this->listener->channel[$channelId]['tempBuffer'][] = $sendData;
+                }
+                var_dump($this->listener->channel[$channelId]['tempBuffer']);
+                echo $this->HEL;
+                break;
+        }
+    }
+    
+    public function eventFromCenter ($bev, $events, $ctx)
+    {
+        if ($events & \EventBufferEvent::ERROR) {
+            echo "Center ERROR" . PHP_EOL;
+            echo \EventUtil::getLastSocketError() . PHP_EOL;
+        }
+
+        if ($events & (\EventBufferEvent::EOF)) {
+            echo "Center EOF" . PHP_EOL;
+        }
+        
+        if ($events & \EventBufferEvent::TIMEOUT) {
+            echo 'Center timeout' . PHP_EOL;
+        }
+        $this->centerBev = $this->connectToCenter($this->centerConn);
     }
 }
