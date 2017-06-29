@@ -110,11 +110,13 @@ class ListenerConnection
                     //send pack to upstream
                     echo 'send to center : ' . $toUpstreamPayload;
                     $retryCount = 0;
-                    while(($sendBytes = socket_write($this->listener->centerConn, $toUpstreamPayload, strlen($toUpstreamPayload))) === false && $retryCount < 3) {
+                    $eb = new \EventBuffer();
+                    $eb->add($toUpstreamPayload);
+                    while(($addResult = $this->listener->centerBev->output->addBuffer($eb)) === false && $retryCount < 3) {
                         $this->listener->connectToCenter();
                         $retryCount ++;
                     }
-                    if ($sendBytes === false) {
+                    if ($addResult === false) {
                         echo 'send to center failed' . $this->HEL;
                     } else {
                         echo 'send to center ok' . $this->HEL;
