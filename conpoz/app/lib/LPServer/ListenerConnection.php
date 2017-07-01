@@ -33,42 +33,19 @@ class ListenerConnection
     {
         // Copy all the data from the input buffer to the output buffer
         // Variant #1
-        $no = 0;
-        $header = array();
-        $echo = '';
-        while (!is_null($line = $bev->input->readLine(\EventBuffer::EOL_CRLF))) {
-            if ($no === 0) {
-                $reqInfo = explode(' ', $line);
-            } else {
-                $tempData = explode(': ', $line, 2);
-                if (count($tempData) == 2) {
-                    $header[$tempData[0]] = $tempData[1];
-                } else {
-                    $header[$tempData[0]] = null;
-                }
-            }
-            $echo .= $line;
-            $no++;
-        }
-        if (!isset($reqInfo[1])) {
-            $this->responseError('http header error');
+        
+        try {
+            $reqObj = \Conpoz\App\Lib\LPParser\Http::parse($bev);
+        } catch (\Exception $e) {
+            $this->responseError($e->getMessage());
             return;
         }
-        $pathInfo = explode('?', $reqInfo[1], 2);
-        $queryParams = array();
-        if (!isset($pathInfo[1])) {
-            $this->responseError('req params required');
-            return;
-        }
-        parse_str($pathInfo[1], $queryParams);
-        $pathSegment = explode('/', trim($pathInfo[0], '/'));
-        switch ($pathSegment[0]) {
-            case 'centerMessage':
-                break;
-            case 'send':
+        
+        switch ($reqObj->pathInfo) {
+            case '/send':
                 echo 'send' . PHP_EOL;
                 
-                if (!isset($queryParams['data']) || !isset($queryParams['channel'])) {
+                if (!isset($reqObj->queryParams['data']) || !isset($reqObj->queryParams['channel'])) {
                     $this->responseError('send action require data, channel');
                     return;
                 }
@@ -77,18 +54,18 @@ class ListenerConnection
                 * 使用 hashKey
                 */
                 if (!is_null($this->listener->hashKey)) {
-                    if (!isset($queryParams['tk']) || !isset($queryParams['ts'])) {
+                    if (!isset($reqObj->queryParams['tk']) || !isset($reqObj->queryParams['ts'])) {
                         $this->responseError('send action require tk, ts');
                         return;
                     }
-                    if (md5(urldecode($queryParams['channel']) . $queryParams['ts'] . $this->listener->hashKey) !== $queryParams['tk'] || (((int) $queryParams['ts'] + 15) < time())) {
+                    if (md5(urldecode($reqObj->queryParams['channel']) . $reqObj->queryParams['ts'] . $this->listener->hashKey) !== $reqObj->queryParams['tk'] || (((int) $reqObj->queryParams['ts'] + 15) < time())) {
                         $this->responseError('send action tk failed');
                         return;
                     }
                 }
                 $smt = microtime(true);
-                $sendData = json_decode(urldecode($queryParams['data']), true);
-                $sendChannel = json_decode(urldecode($queryParams['channel']), true);
+                $sendData = json_decode(urldecode($reqObj->queryParams['data']), true);
+                $sendChannel = json_decode(urldecode($reqObj->queryParams['channel']), true);
                 if (!$sendData || !$sendChannel) {
                     $this->responseError('data, channel need be json format');
                     return;
@@ -147,11 +124,11 @@ class ListenerConnection
                     echo $sendChannelLog . PHP_EOL;
                 }
                 break;
-            case 'read':
+            case '/read':
                 /**
                 * 指定 channelId
                 */
-                if (!isset($queryParams['channel'])) {
+                if (!isset($reqObj->queryParams['channel'])) {
                     $this->responseError('send action require channel');
                     return;
                 }
@@ -160,16 +137,16 @@ class ListenerConnection
                 * 使用 hashKey
                 */
                 if (!is_null($this->listener->hashKey)) {
-                    if (!isset($queryParams['tk']) || !isset($queryParams['ts'])) {
+                    if (!isset($reqObj->queryParams['tk']) || !isset($reqObj->queryParams['ts'])) {
                         $this->responseError('read action require tk, ts');
                         return;
                     }
-                    if (md5(urldecode($queryParams['channel']) . $queryParams['ts'] . $this->listener->hashKey) !== $queryParams['tk'] || (((int) $queryParams['ts'] + 15) < time())) {
+                    if (md5(urldecode($reqObj->queryParams['channel']) . $reqObj->queryParams['ts'] . $this->listener->hashKey) !== $reqObj->queryParams['tk'] || (((int) $reqObj->queryParams['ts'] + 15) < time())) {
                         $this->responseError('read action tk failed');
                         return;
                     }
                 }
-                $this->channel = json_decode(urldecode($queryParams['channel']), true);
+                $this->channel = json_decode(urldecode($reqObj->queryParams['channel']), true);
                 if (!$this->channel) {
                     $this->responseError('channel need be json format');
                     return;

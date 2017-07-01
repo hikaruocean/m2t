@@ -233,47 +233,27 @@ class Listener
     
     public function readFromCenter ($bev, $ctx) 
     {
-        $no = 0;
-        $header = array();
-        $echo = '';
-        while (!is_null($line = $bev->input->readLine(\EventBuffer::EOL_CRLF))) {
-            if ($no === 0) {
-                $reqInfo = explode(' ', $line);
-            } else {
-                $tempData = explode(': ', $line, 2);
-                if (count($tempData) == 2) {
-                    $header[$tempData[0]] = $tempData[1];
-                } else {
-                    $header[$tempData[0]] = null;
-                }
-            }
-            $echo .= $line;
-            $no++;
-        }
-        if (!isset($reqInfo[1])) {
+        try {
+            $reqObj = \Conpoz\App\Lib\LPParser\Http::parse($bev);
+        } catch (\Exception $e) {
+            echo $e->getMessage() . $this->HEL;
             return;
         }
-        $pathInfo = explode('?', $reqInfo[1], 2);
-        $queryParams = array();
-        if (!isset($pathInfo[1])) {
-            return;
-        }
-        parse_str($pathInfo[1], $queryParams);
-        $pathSegment = explode('/', trim($pathInfo[0], '/'));
-        switch ($pathSegment[0]) {
-            case 'centerMessage':
-                if (!isset($queryParams['data']) || !isset($queryParams['channel'])) {
+        
+        switch ($reqObj->pathInfo) {
+            case '/centerMessage':
+                if (!isset($reqObj->queryParams['data']) || !isset($reqObj->queryParams['channel'])) {
                     return;
                 }
-                $sendData = json_decode(urldecode($queryParams['data']), true);
-                $sendChannel = json_decode(urldecode($queryParams['channel']), true);
+                $sendData = json_decode(urldecode($reqObj->queryParams['data']), true);
+                $sendChannel = json_decode(urldecode($reqObj->queryParams['channel']), true);
                 if (!$sendData || !$sendChannel) {
                     return;
                 }
                 foreach ($sendChannel as $channelId) {
                     $this->listener->channel[$channelId]['tempBuffer'][] = $sendData;
                 }
-                var_dump($this->listener->channel[$channelId]['tempBuffer']);
+                // var_dump($this->listener->channel[$channelId]['tempBuffer']);
                 echo $this->HEL;
                 break;
         }
