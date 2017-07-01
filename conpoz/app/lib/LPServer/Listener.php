@@ -251,9 +251,9 @@ class Listener
                     return;
                 }
                 foreach ($sendChannel as $channelId) {
-                    $this->listener->channel[$channelId]['tempBuffer'][] = $sendData;
+                    $this->channel[$channelId]['tempBuffer'][] = $sendData;
                 }
-                // var_dump($this->listener->channel[$channelId]['tempBuffer']);
+                var_dump($this->channel[$channelId]['tempBuffer']);
                 echo $this->HEL;
                 break;
         }

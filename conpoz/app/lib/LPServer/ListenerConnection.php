@@ -83,15 +83,15 @@ class ListenerConnection
                 * 處理 cluster 通訊
                 */
                 if (!is_null($this->listener->centerHost)) {
-                    $toUpstreamPayload = json_encode(array('channel' => $sendChannel, 'data' => $sendData)) . $this->HEL;
+                    $toUpstreamPayload = json_encode(array('action' => 'broadcast', 'channel' => $sendChannel, 'data' => $sendData)) . $this->HEL;
                     //send pack to upstream
                     echo 'send to center : ' . $toUpstreamPayload;
                     $retryCount = 0;
                     $eb = new \EventBuffer();
                     $eb->add($toUpstreamPayload);
                     while(($addResult = $this->listener->centerBev->output->addBuffer($eb)) === false && $retryCount < 3) {
-                        $this->listener->connectToCenter();
                         $retryCount ++;
+                        usleep(500);
                     }
                     if ($addResult === false) {
                         echo 'send to center failed' . $this->HEL;
@@ -157,6 +157,28 @@ class ListenerConnection
                 foreach ($this->channel as $channelId) {
                     $this->listener->channel[$channelId]['conn'][$this->fd] = $this;
                 }
+                
+                /**
+                * 處理 cluster 通訊
+                */
+                if (!is_null($this->listener->centerHost)) {
+                    $toUpstreamPayload = json_encode(array('action' => 'register', 'channel' => $this->channel)) . $this->HEL;
+                    //send pack to upstream
+                    echo 'register read channel to center : ' . $toUpstreamPayload;
+                    $retryCount = 0;
+                    $eb = new \EventBuffer();
+                    $eb->add($toUpstreamPayload);
+                    while(($addResult = $this->listener->centerBev->output->addBuffer($eb)) === false && $retryCount < 3) {
+                        $retryCount ++;
+                        usleep(500);
+                    }
+                    if ($addResult === false) {
+                        echo 'register read channel to center failed' . $this->HEL;
+                    } else {
+                        echo 'register read channel to center ok' . $this->HEL;
+                    }
+                }
+                
                 break;
             default:
                 $eb = new \EventBuffer();
@@ -215,6 +237,28 @@ class ListenerConnection
             foreach ($this->channel as $channelId) {
                 unset($this->listener->channel[$channelId]['conn'][$this->fd]);
             }
+            
+            /**
+            * 處理 cluster 通訊
+            */
+            if (!is_null($this->listener->centerHost) && !empty($this->channel)) {
+                $toUpstreamPayload = json_encode(array('action' => 'unregister', 'channel' => $this->channel)) . $this->HEL;
+                //send pack to upstream
+                echo 'unregister read channel to center : ' . $toUpstreamPayload;
+                $retryCount = 0;
+                $eb = new \EventBuffer();
+                $eb->add($toUpstreamPayload);
+                while(($addResult = $this->listener->centerBev->output->addBuffer($eb)) === false && $retryCount < 3) {
+                    $retryCount ++;
+                    usleep(500);
+                }
+                if ($addResult === false) {
+                    echo 'unregister read channel to center failed' . $this->HEL;
+                } else {
+                    echo 'unregister read channel to center ok' . $this->HEL;
+                }
+            }
         }
+        
     }
 }
