@@ -3,7 +3,7 @@ namespace Conpoz\App\Lib\LPCenter;
 
 class ListenerConnection 
 {
-    public $bev, $base, $listener, $fd, $HEL, $channel;
+    public $bev, $base, $listener, $fd, $HEL;
 
     public function __destruct () 
     {
@@ -13,7 +13,6 @@ class ListenerConnection
 
     public function __construct ($base, &$fd, &$listener) 
     {
-        $this->channel = array();
         $this->listener = &$listener;
         $this->HEL = $listener->HEL;
         $this->fd = &$fd;
@@ -35,49 +34,17 @@ class ListenerConnection
             echo 'recv data : ' . $line . $this->HEL;
             $obj = json_decode($line);
             switch ($obj->action) {
-                case 'register':
-                    foreach ($obj->channel as $channelId) {
-                        if (!in_array($channelId, $this->channel)) {
-                            $this->channel[] = $channelId;
-                        }
-                        $this->listener->channel[$channelId]['conn'][$this->fd] = $this;
-                    }
-                    break;
-                case 'unregister':
-                    foreach ($obj->channel as $channelId) {
-                        unset($this->channel[$channelId]);
-                        unset($this->listener->channel[$channelId]['conn'][$this->fd]);
-                    }
-                    break;
                 case 'broadcast':
-                    $payloadSeg1 = 'GET /centerMessage?data=' .  urlencode(json_encode($obj->data));
-                    $payloadSeg2 = ' HTTP/1.1' . $this->HEL . $this->HEL;
-                    $readySendAry = array();
-                    foreach ($obj->channel as $channelId) {
-                        if (!isset($this->listener->channel[$channelId])) {
-                            continue;
-                        }
-                        foreach ($this->listener->channel[$channelId]['conn'] as $fd => $conn) {
-                            $readySendAry[$fd][] = $channelId;
-                        }
-                    }
-                    foreach ($readySendAry as $fd => $channel) {
+                    $payload = 'GET /centerMessage?channel=' . urlencode(json_encode($obj->channel)) . '&data=' .  urlencode(json_encode($obj->data)) . ' HTTP/1.1' . $this->HEL . $this->HEL;
+                    foreach ($this->listener->conn as $fd => $conn) {
                         if ($fd == $this->fd) {
                             continue;
                         }
-                        $payload = $payloadSeg1 . '&channel=' . urlencode(json_encode($channel)) . $payloadSeg2;
+                        echo 'send data : ' . $payload;
                         $eb = new \EventBuffer();
                         $eb->add($payload);
-                        $this->listener->conn[$fd]->bev->output->addBuffer($eb);
+                        $conn->bev->output->addBuffer($eb);
                     }
-                    // foreach ($this->listener->conn as $fd => $conn) {
-                    //     if ($fd == $this->fd) {
-                    //         continue;
-                    //     }
-                    //     $eb = new \EventBuffer();
-                    //     $eb->add($paylaod);
-                    //     $conn->bev->output->addBuffer($eb);
-                    // }
                     break;
                 case 'flush':
                     break;
@@ -119,10 +86,5 @@ class ListenerConnection
         */
         $this->bev = null;
         unset($this->listener->conn[$this->fd]);
-        if (is_array($this->channel)) {
-            foreach ($this->channel as $channelId) {
-                unset($this->listener->channel[$channelId]['conn'][$this->fd]);
-            }
-        }
     }
 }

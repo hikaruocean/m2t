@@ -123,7 +123,6 @@ class Listener
                      * 匯整 channel 的 send data 
                      */
                     while (($data = array_shift($this->channel[$channelId]['tempBuffer'])) && !is_null($data)) {
-                        // var_dump($data);
                         $resultAry[]= $data;
                     }
                     /**
@@ -245,17 +244,22 @@ class Listener
                 if (!isset($reqObj->queryParams['data']) || !isset($reqObj->queryParams['channel'])) {
                     return;
                 }
-                $sendData = json_decode(urldecode($reqObj->queryParams['data']), true);
-                $sendChannel = json_decode(urldecode($reqObj->queryParams['channel']), true);
+                $sendData = json_decode($reqObj->queryParams['data'], true);
+                $sendChannel = json_decode($reqObj->queryParams['channel'], true);
                 if (!$sendData || !$sendChannel) {
                     return;
                 }
                 foreach ($sendChannel as $channelId) {
-                    $this->channel[$channelId]['tempBuffer'][] = $sendData;
+                    if (isset($this->channel[$channelId]) && $this->channel[$channelId]['lastWatchTime'] + 65 > time()) {
+                        $this->channel[$channelId]['tempBuffer'][] = $sendData;
+                    }
                 }
-                var_dump($this->channel[$channelId]['tempBuffer']);
-                echo $this->HEL;
+                // if (isset($this->channel[$channelId]['tempBuffer'])) {
+                //     var_dump($this->channel[$channelId]['tempBuffer']);
+                // }
+                echo 'centerMessage recv : channel => ' . $reqObj->queryParams['channel'] . ' data => ' . $reqObj->queryParams['data'];
                 break;
+            case '/centerFlush':
         }
     }
     

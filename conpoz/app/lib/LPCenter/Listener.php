@@ -7,7 +7,6 @@ class Listener
         $listener,
         $socket;
     public $conn = array();
-    public $channel = array();
     public $header404 = '';
     public $header200 = '';
     public $keepAlive;

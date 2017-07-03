@@ -58,21 +58,21 @@ class ListenerConnection
                         $this->responseError('send action require tk, ts');
                         return;
                     }
-                    if (md5(urldecode($reqObj->queryParams['channel']) . $reqObj->queryParams['ts'] . $this->listener->hashKey) !== $reqObj->queryParams['tk'] || (((int) $reqObj->queryParams['ts'] + 15) < time())) {
+                    if (md5($reqObj->queryParams['channel'] . $reqObj->queryParams['ts'] . $this->listener->hashKey) !== $reqObj->queryParams['tk'] || (((int) $reqObj->queryParams['ts'] + 15) < time())) {
                         $this->responseError('send action tk failed');
                         return;
                     }
                 }
                 $smt = microtime(true);
-                $sendData = json_decode(urldecode($reqObj->queryParams['data']), true);
-                $sendChannel = json_decode(urldecode($reqObj->queryParams['channel']), true);
-                if (!$sendData || !$sendChannel) {
-                    $this->responseError('data, channel need be json format');
+                $sendData = json_decode($reqObj->queryParams['data'], true);
+                $sendChannel = json_decode($reqObj->queryParams['channel'], true);
+                if (!$sendData || !$sendChannel || !is_array($sendChannel)) {
+                    $this->responseError('data, channel need be json format and channel must be array');
                     return;
                 }
-                // var_dump($sendData, $sendChannel);
+                
                 /**
-                * 傳送資料連線本身, 立刻回應 request 端成功
+                * 傳送資料連線本身, 回應 request 端結果
                 */
                 $eb = new \EventBuffer();
                 $payload = json_encode(array('result' => 0, 'smt' => $smt));
@@ -100,29 +100,21 @@ class ListenerConnection
                     }
                 }
                 
-                if (is_string($sendChannel) && $sendChannel == '*') {
-                    /**
-                    * online channel broadcast case
-                    * 寫入各 channel 的 tempBuffer
-                    */
-                    echo 'brodcast add buffer' . PHP_EOL;
-                    foreach ($this->listener->channel as $channelId => &$channelResource) {
-                        $channelResource['tempBuffer'][] = $sendData;
-                    }
-                    unset($channelResource);
-                    // var_dump($this->listener->channel);
-                } else if (is_array($sendChannel)){
+                if (is_array($sendChannel)){
                     /**
                     * 指定 channel 傳送，就寫到該 channel 的 tempBuffer
                     */
                     echo 'specified channel add buffer' . PHP_EOL;
                     $sendChannelLog = '';
                     foreach ($sendChannel as $channelId) {
-                        $sendChannelLog .= $channelId . ',';
-                        $this->listener->channel[$channelId]['tempBuffer'][] = $sendData;
+                        if (isset($this->listener->channel[$channelId]) && $this->listener->channel[$channelId]['lastWatchTime'] + 65 > time()) {
+                            $sendChannelLog .= $channelId . ',';
+                            $this->listener->channel[$channelId]['tempBuffer'][] = $sendData;
+                        }
                     }
                     echo $sendChannelLog . PHP_EOL;
                 }
+                
                 break;
             case '/read':
                 /**
@@ -141,14 +133,14 @@ class ListenerConnection
                         $this->responseError('read action require tk, ts');
                         return;
                     }
-                    if (md5(urldecode($reqObj->queryParams['channel']) . $reqObj->queryParams['ts'] . $this->listener->hashKey) !== $reqObj->queryParams['tk'] || (((int) $reqObj->queryParams['ts'] + 15) < time())) {
+                    if (md5($reqObj->queryParams['channel'] . $reqObj->queryParams['ts'] . $this->listener->hashKey) !== $reqObj->queryParams['tk'] || (((int) $reqObj->queryParams['ts'] + 15) < time())) {
                         $this->responseError('read action tk failed');
                         return;
                     }
                 }
-                $this->channel = json_decode(urldecode($reqObj->queryParams['channel']), true);
-                if (!$this->channel) {
-                    $this->responseError('channel need be json format');
+                $this->channel = json_decode($reqObj->queryParams['channel'], true);
+                if (!$this->channel || !is_array($this->channel)) {
+                    $this->responseError('channel need be json format and channel need be array');
                     return;
                 }
                 if ($this->listener->keepAlive === true) {
@@ -156,29 +148,8 @@ class ListenerConnection
                 }
                 foreach ($this->channel as $channelId) {
                     $this->listener->channel[$channelId]['conn'][$this->fd] = $this;
+                    $this->listener->channel[$channelId]['lastWatchTime'] = time();
                 }
-                
-                /**
-                * 處理 cluster 通訊
-                */
-                if (!is_null($this->listener->centerHost)) {
-                    $toUpstreamPayload = json_encode(array('action' => 'register', 'channel' => $this->channel)) . $this->HEL;
-                    //send pack to upstream
-                    echo 'register read channel to center : ' . $toUpstreamPayload;
-                    $retryCount = 0;
-                    $eb = new \EventBuffer();
-                    $eb->add($toUpstreamPayload);
-                    while(($addResult = $this->listener->centerBev->output->addBuffer($eb)) === false && $retryCount < 3) {
-                        $retryCount ++;
-                        usleep(500);
-                    }
-                    if ($addResult === false) {
-                        echo 'register read channel to center failed' . $this->HEL;
-                    } else {
-                        echo 'register read channel to center ok' . $this->HEL;
-                    }
-                }
-                
                 break;
             default:
                 $eb = new \EventBuffer();
@@ -237,28 +208,6 @@ class ListenerConnection
             foreach ($this->channel as $channelId) {
                 unset($this->listener->channel[$channelId]['conn'][$this->fd]);
             }
-            
-            /**
-            * 處理 cluster 通訊
-            */
-            if (!is_null($this->listener->centerHost) && !empty($this->channel)) {
-                $toUpstreamPayload = json_encode(array('action' => 'unregister', 'channel' => $this->channel)) . $this->HEL;
-                //send pack to upstream
-                echo 'unregister read channel to center : ' . $toUpstreamPayload;
-                $retryCount = 0;
-                $eb = new \EventBuffer();
-                $eb->add($toUpstreamPayload);
-                while(($addResult = $this->listener->centerBev->output->addBuffer($eb)) === false && $retryCount < 3) {
-                    $retryCount ++;
-                    usleep(500);
-                }
-                if ($addResult === false) {
-                    echo 'unregister read channel to center failed' . $this->HEL;
-                } else {
-                    echo 'unregister read channel to center ok' . $this->HEL;
-                }
-            }
         }
-        
     }
 }
