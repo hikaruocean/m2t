@@ -52,36 +52,40 @@ class Panel extends \Conpoz\App\Controller\BaseController
     
     public function loadNextVideoAction ($bag)
     {
-        $params = $bag->req->getPost(array('id'));
-        
-        if ($params['id'] == $bag->sess->user_id) {
-            $bag->dbquery->update('play_queue', array('status' => 1), "status = :status", array('status' => 2));
-            $rh = $bag->dbquery->execute("SELECT id, info_result_code, video_id, title, comment FROM play_queue WHERE user_id = :userId AND status = 0 ORDER BY sort_no ASC LIMIT 1", array('userId' => (int) $params['id']));
-            $obj = $rh->fetch();
-            if (!$obj) {
-                echo json_encode(array('result' => -2));
-                return;
-            }
-            $bag->dbquery->update('play_queue', array('status' => 2), "id = :id AND user_id = :userId", array('id' => (int) $obj->id, 'userId' => (int) $params['id']));
+        try {
             
-        } else {
-            $rh = $bag->dbquery->execute("SELECT id, info_result_code, video_id, title, comment FROM play_queue WHERE user_id = :userId AND status = 2", array('userId' => (int) $params['id']));
-            $obj = $rh->fetch();
-            if (!$obj) {
-                echo json_encode(array('result' => -2));
-                return;
+            $params = $bag->req->getPost(array('id'));
+            
+            if ($params['id'] == $bag->sess->user_id) {
+                $bag->dbquery->update('play_queue', array('status' => 1), "status = :status", array('status' => 2));
+                $rh = $bag->dbquery->execute("SELECT id, info_result_code, video_id, title, comment FROM play_queue WHERE user_id = :userId AND status = 0 ORDER BY sort_no ASC LIMIT 1", array('userId' => (int) $params['id']));
+                $obj = $rh->fetch();
+                if (!$obj) {
+                    throw new \Exception('no video', -2);
+                }
+                $bag->dbquery->update('play_queue', array('status' => 2), "id = :id AND user_id = :userId", array('id' => (int) $obj->id, 'userId' => (int) $params['id']));
+                
+            } else {
+                $rh = $bag->dbquery->execute("SELECT id, info_result_code, video_id, title, comment FROM play_queue WHERE user_id = :userId AND status = 2", array('userId' => (int) $params['id']));
+                $obj = $rh->fetch();
+                if (!$obj) {
+                    throw new \Exception('channel stop', -3);
+                }
             }
+            
+            $src = null;
+            if ((int) $obj->info_result_code == -1) {
+                list($prot, $ver) = explode('/', $_SERVER["SERVER_PROTOCOL"]);
+                $src = 'https://www.youtube.com/embed/' . $obj->video_id . '?autoplay=true&enablejsapi=1&origin=' . strtolower($prot) . '%3A%2F%2F' . $_SERVER["HTTP_HOST"] . '&widgetid=1';
+            }
+            
+            echo json_encode(array('result' => (int) $obj->info_result_code, 'id' => $obj->id, 'videoId' => $obj->video_id, 'src' => $src, 'title' => $obj->title, 'comment' => $obj->comment));
+            
+        } catch (\Exception $e) {
+            echo json_encode(array('result' => -2));
         }
-        
-        $src = null;
-        if ((int) $obj->info_result_code == -1) {
-            list($prot, $ver) = explode('/', $_SERVER["SERVER_PROTOCOL"]);
-            $src = 'https://www.youtube.com/embed/' . $obj->video_id . '?autoplay=true&enablejsapi=1&origin=' . strtolower($prot) . '%3A%2F%2F' . $_SERVER["HTTP_HOST"] . '&widgetid=1';
-        }
-        
-        echo json_encode(array('result' => (int) $obj->info_result_code, 'id' => $obj->id, 'videoId' => $obj->video_id, 'src' => $src, 'title' => $obj->title, 'comment' => $obj->comment));
         $this->videoListChange($params['id']);
-        return;
+        
     }
     
     public function addVideoAction ($bag)
