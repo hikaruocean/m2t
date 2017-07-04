@@ -7,13 +7,14 @@ class Landing extends \Conpoz\App\Controller\BaseController
     {
         $RA = $bag->tool->force($_COOKIE, 'randomAccount');
         if (!is_null($RA)) {
-            $rh = $bag->dbquery->execute("SELECT id, name, channel, user_role FROM user WHERE random_account = :RA ", array('RA' =>$RA));
+            $rh = $bag->dbquery->execute("SELECT id, name, channel, user_role, account FROM user WHERE random_account = :RA ", array('RA' =>$RA));
             $obj = $rh->fetch();
             if ($obj) {
                 $bag->sess->user_id = (int) $obj->id;
                 $bag->sess->channel = $obj->channel;
                 $bag->sess->name = $obj->name;
                 $bag->sess->user_role = $obj->user_role;
+                $bag->sess->account = $obj->account;
                 setcookie('randomAccout', $randomToken, time()+60*60*24*365, '/', null, false, true);
                 header('Location: /');
             }

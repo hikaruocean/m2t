@@ -32,11 +32,19 @@ class Panel extends \Conpoz\App\Controller\BaseController
     }
     public function indexAction ($bag)
     {
+        /**
+        * 未註冊發通知提醒
+        **/
+        if (empty($bag->sess->account)) {
+            $payload = $bag->lpPack->payload(array('user_' . $bag->sess->user_id), array('news' => array('delay' => 60, 'content' => '您也可以選擇現在註冊帳號')));
+            $bag->net->httpGet('http://127.0.0.1:50126/send?' . $payload);
+        }
+        
         $channelUserInfo = null;
         $selfChannel = null;
         $this->getChannelUserId($channelUserInfo, $selfChannel);
         
-        $channelAry = array('video_channel_' . $channelUserInfo->id, 'global_message');
+        $channelAry = array('video_channel_' . $channelUserInfo->id, 'global_message', 'user_' . $bag->sess->user_id);
         $ts = time();
         $tk = md5(json_encode($channelAry) . $ts . $bag->config->LPServer['hashKey']);
         $lpServerInfo = array(
@@ -140,10 +148,10 @@ class Panel extends \Conpoz\App\Controller\BaseController
         $bag->dbquery->insert('play_queue', array('user_id' => (int) $params['id'], 'order_user_id' => (int) $bag->sess->user_id, 'url' => $params['url'], 'info_result_code' => (int) $infoResultCode, 'comment' => $params['comment'], 'video_id' => $data['v'], 'title' => $vTitle, 'status' => 0, 'sort_no' => microtime(true)));
         $bag->dbquery->commit();
         echo json_encode(array('result' => 0, 'title' => $vTitle));
-        $this->videoListChange($params['id']);
+        $this->videoListChange($params['id'], array('videoNews' => '[點歌] ' . $vTitle));
     }
     
-    private function videoListChange ($userId)
+    private function videoListChange ($userId, $joinMsg = array())
     {
         $bag = $this->bag;
         $rh = $bag->dbquery->execute("SELECT id, title, sort_no FROM play_queue WHERE user_id = :userId AND status = 0 ORDER BY sort_no ASC", array('userId' => (int) $userId));
@@ -151,8 +159,8 @@ class Panel extends \Conpoz\App\Controller\BaseController
         while ($obj = $rh->fetch()) {
             $resultAry[] = $obj;
         }
-        $payload = $this->bag->lpPack->payload(array('video_channel_' . $userId), array('videoList' => $resultAry));
-        // $payload = 'data=' . urlencode(json_encode(array('videoList' => $resultAry))) . '&channel=' . urlencode(json_encode(array('video_channel_' . $userId)));
+        $dataAry = array_merge(array('videoList' => $resultAry), $joinMsg);
+        $payload = $this->bag->lpPack->payload(array('video_channel_' . $userId), $dataAry);
         $resultAry = $bag->net->httpGet('http://127.0.0.1:50126/send?' . $payload);
     }
     
@@ -191,6 +199,8 @@ class Panel extends \Conpoz\App\Controller\BaseController
         }
         $bag->dbquery->update('play_queue', array('sort_no' => $obj->sort_no - 0.0001), "id = :id", array('id' => (int) $params['qid']));
         echo json_encode(array('result' => 0));
-        $this->videoListChange($params['id']);
+        $rh = $bag->dbquery->execute("SELECT title FROM play_queue WHERE id = :id", array('id' => (int) $params['qid']));
+        $obj = $rh->fetch();
+        $this->videoListChange($params['id'], array('videoNews' => '[插撥]' . $obj->title));
     }
 }

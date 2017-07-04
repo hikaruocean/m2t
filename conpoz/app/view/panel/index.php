@@ -3,9 +3,54 @@
     var lpServerInfo = <?php echo json_encode($lpServerInfo);?>;
 </script>
 <script src="http://code.responsivevoice.org/responsivevoice.js"></script>
+<style>
+.main-div {
+    color: #ffffff;
+    font-size: 24px;
+    font-weight: bold;
+    padding: 10px;
+    background-color: #5cb85c;
+    overflow: auto;
+}
+.right {
+    float: right;
+}
+#news-box {
+    display: none;
+    color: #ffffff;
+    padding: 10px;
+    background-color: #5bc0de;
+}
+#player-frame {
+    position: relative;
+    /*border: 1px solid red;*/
+}
+#video-news {
+    position: absolute;
+    color: #FFE66F;
+    top: 0px;
+    left: 0px;
+    padding: 20px;
+    text-shadow: 1px 1px #333333;
+    width: 440px;
+    word-wrap: break-word;
+}
+</style>
 <div>
-    <div id="player" style="float:left"></div>
-    <div id="player-list" style="float:left">
+    <div class="main-div">
+        <span>
+            <?php echo $channelUserInfo->name;?>
+        </span>
+        <span class="right">
+            <?php echo (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . '/panel/index/' . $channelUserInfo->channel;?>
+        </span>
+    </div>
+    <div id="news-box"></div>
+    <div id="player-frame">
+        <div id="player"></div>
+        <div id="video-news"></div>
+    </div>
+    <div id="player-list">
         <div>
             <textarea id="message" name="message" placeholder="發送訊息"></textarea>
         </div>
@@ -20,7 +65,7 @@
         <ul id="player-list-ul">
         </ul>
     </div>
-    <div style="clear:both"></div>
+    <div></div>
 </div>
 <div id="log">
 </div>
@@ -41,6 +86,7 @@
     var lastSortNo = 0;
     var getListSwitch = true;
     var lastPlayQueueId = 0;
+    var tempContent = '';
     
     function createPlayer(videoId) {
         player = new YT.Player('player', {
@@ -198,6 +244,15 @@
                                         }
                                         $('#player-list-ul').append(addItemStr);
                                         break;
+                                    case 'news':
+                                        tempContent = jsonObj.data[i][key].content;
+                                        setTimeout(function () {
+                                            $('#news-box').html(tempContent).slideDown(1000);
+                                        }, jsonObj.data[i][key].delay * 1000);
+                                        break;
+                                    case 'videoNews':
+                                        $('#video-news').html(jsonObj.data[i][key]);
+                                        break;
                                 }
                             }
                         }
@@ -216,6 +271,7 @@
             }
         });
     }
+    
 </script>
 <script>
     $(function() {
