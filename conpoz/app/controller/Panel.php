@@ -65,7 +65,7 @@ class Panel extends \Conpoz\App\Controller\BaseController
             $params = $bag->req->getPost(array('id'));
             
             if ($params['id'] == $bag->sess->user_id) {
-                $bag->dbquery->update('play_queue', array('status' => 1), "status = :status", array('status' => 2));
+                $bag->dbquery->update('play_queue', array('status' => 1), "status = :status AND user_id = :userId", array('status' => 2, 'userId' => (int) $params['id']));
                 $rh = $bag->dbquery->execute("SELECT id, info_result_code, video_id, title, comment FROM play_queue WHERE user_id = :userId AND status = 0 ORDER BY sort_no ASC LIMIT 1", array('userId' => (int) $params['id']));
                 $obj = $rh->fetch();
                 if (!$obj) {
