@@ -65,7 +65,8 @@
         <ul id="player-list-ul">
         </ul>
     </div>
-    <div></div>
+    <div>
+    </div>
 </div>
 <div id="log">
 </div>

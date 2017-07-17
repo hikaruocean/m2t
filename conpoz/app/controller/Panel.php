@@ -36,7 +36,10 @@ class Panel extends \Conpoz\App\Controller\BaseController
         * 未註冊發通知提醒
         **/
         if (empty($bag->sess->account)) {
-            $payload = $bag->lpPack->payload(array('user_' . $bag->sess->user_id), array('news' => array('delay' => 60, 'content' => '您也可以選擇現在註冊帳號')));
+            $ruleObj = new \Conpoz\App\Lib\ValidateRule\Register();
+            $this->view->addView('/panel/register-event');
+            $html = require($this->view->getView());
+            $payload = $bag->lpPack->payload(array('user_' . $bag->sess->user_id), array('news' => array('delay' => 2, 'content' => $html)));
             $bag->net->httpGet('http://127.0.0.1:50126/send?' . $payload);
         }
         

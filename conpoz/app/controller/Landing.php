@@ -33,6 +33,7 @@ class Landing extends \Conpoz\App\Controller\BaseController
         $bag->sess->channel = $bag->sess->user_id = $id;
         $bag->sess->name = 'Guset';
         $bag->sess->user_role = 'member';
+        $bag->sess->account = null;
         setcookie('randomAccount', $randomToken, time()+60*60*24*365, '/', null, false, true);
         header('Location: /');
     }

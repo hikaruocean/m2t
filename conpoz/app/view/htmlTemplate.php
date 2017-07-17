@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
     <title>Conpoz Title</title>
     <script src="/js/jquery-1.12.4.min.js"></script>
+    <script src="/js/jquery.form.js"></script>
     <script src="/js/conpoz.validator.js"></script>
     </head>
     <body>
