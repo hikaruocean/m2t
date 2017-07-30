@@ -157,37 +157,20 @@ class Panel extends \Conpoz\App\Controller\BaseController
     private function videoListChange ($userId, $joinMsg = array())
     {
         $bag = $this->bag;
-        $rh = $bag->dbquery->execute("SELECT id, title, sort_no FROM play_queue WHERE user_id = :userId AND status = 0 ORDER BY sort_no ASC", array('userId' => (int) $userId));
-        $resultAry = array();
-        while ($obj = $rh->fetch()) {
-            $resultAry[] = $obj;
-        }
-        $dataAry = array_merge(array('videoList' => $resultAry), $joinMsg);
-        $payload = $this->bag->lpPack->payload(array('video_channel_' . $userId), $dataAry);
+        $dataAry = array_merge(array('videoListChange' => $userId), $joinMsg);
+        $payload = $bag->lpPack->payload(array('video_channel_' . $userId), $dataAry);
         $resultAry = $bag->net->httpGet('http://127.0.0.1:50126/send?' . $payload);
     }
     
     public function getVideoListAction ($bag) 
     {
-        $params = $bag->req->getPost(array('id', 'firstSortNo', 'lastSortNo'));
-        $rh = $bag->dbquery->execute("SELECT id, title, sort_no FROM play_queue WHERE user_id = :userId AND status = 0 AND sort_no < :firstSortNo UNION ALL SELECT id, title, sort_no FROM play_queue WHERE user_id = :userId AND status = 0 AND sort_no > :lastSortNo ORDER BY sort_no ASC", array('userId' => (int) $params['id'], 'firstSortNo' => (float) $params['firstSortNo'], 'lastSortNo' => (float) $params['lastSortNo']));
-        $reaultAry = array('prepend' => array(), 'append' => array());
+        $rh = $bag->dbquery->execute("SELECT id, title, sort_no FROM play_queue WHERE user_id = :userId AND status = 0 ORDER BY sort_no ASC", array('userId' => (int) $bag->req->getPost('userId')));
+        $resultAry = array();
         while ($obj = $rh->fetch()) {
-            if ($obj->sort_no < $params['firstSortNo']) {
-                $reaultAry['prepend'][] = array(
-                    'id' => (int) $obj->id,
-                    'title' => $obj->title,
-                    'sort_no' => (float) $obj->sort_no,
-                );
-            } else {
-                $reaultAry['append'][] = array(
-                    'id' => (int) $obj->id,
-                    'title' => $obj->title,
-                    'sort_no' => (float) $obj->sort_no,
-                );
-            }
+            $resultAry[] = $obj;
         }
-        echo json_encode($reaultAry);
+        
+        echo json_encode(array('result' => 0, 'data' => $resultAry));
         return;
     }
     
@@ -205,5 +188,12 @@ class Panel extends \Conpoz\App\Controller\BaseController
         $rh = $bag->dbquery->execute("SELECT title FROM play_queue WHERE id = :id", array('id' => (int) $params['qid']));
         $obj = $rh->fetch();
         $this->videoListChange($params['id'], array('videoNews' => '[插撥]' . $obj->title));
+    }
+    
+    public function youDeleteAction ($bag)
+    {
+        $params = $bag->req->getPost(array('id', 'qid'));
+        $bag->dbquery->update('play_queue', array('status' => 1), "id = :id", array('id' => (int) $params['qid']));
+        $this->videoListChange($params['id']);
     }
 }

@@ -41,8 +41,11 @@
         <span>
             <?php echo $channelUserInfo->name;?>
         </span>
-        <span class="right">
+        <span>
             <?php echo (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . '/panel/index/' . $channelUserInfo->channel;?>
+        </span>
+        <span class="right">
+            <a href="/landing/logout">Log Out</a>
         </span>
     </div>
     <div id="news-box"></div>
@@ -236,14 +239,21 @@
                                     case 'message':
                                         speaker(jsonObj.data[i][key]);
                                         break;
-                                    case 'videoList':
-                                        $('.v-item').remove();
-                                        addItemStr = '';
-                                        for (j in jsonObj.data[i][key]) {
-                                            jsonObj.data[i][key][j]
-                                            addItemStr += '<li class="v-item" qid="' + jsonObj.data[i][key][j].id + '" sort_no="' + jsonObj.data[i][key][j].sort_no + '">' + jsonObj.data[i][key][j].title + '</li>';
-                                        }
-                                        $('#player-list-ul').append(addItemStr);
+                                    case 'videoListChange':
+                                        $.ajax({
+                                            url: '/panel/getVideoList',
+                                            type: 'post',
+                                            dataType: 'json',
+                                            data: {userId: jsonObj.data[i][key]},
+                                            success: function (jsonObj) {
+                                                $('.v-item').remove();
+                                                addItemStr = '';
+                                                for (p in jsonObj.data) {
+                                                    addItemStr += '<li class="v-item" qid="' + jsonObj.data[p].id + '" sort_no="' + jsonObj.data[p].sort_no + '">' + jsonObj.data[p].title + '[<a class="v-first">插撥</a>][<a class="v-delete">刪除</a>]</li>';
+                                                }
+                                                $('#player-list-ul').append(addItemStr);
+                                            }
+                                        });
                                         break;
                                     case 'news':
                                         tempContent = jsonObj.data[i][key].content;
@@ -318,12 +328,33 @@
             $('#comment').val('');
         });
         
-        $(document).on('click', '.v-item', function(e) {
+        $(document).on('click', '.v-first', function(e) {
             e.preventDefault();
             var _this = $(this);
-            var qid = $(this).attr('qid');
+            var qid = _this.parent().attr('qid');
             $.ajax({
                 url: '/panel/youFirst',
+                type: 'post',
+                dataType: 'json',
+                data: {
+                    id: channelUserInfo.id,
+                    qid: qid
+                },
+                success: function(jsonObj) {
+                    
+                },
+                error: function() {
+
+                }
+            });
+        });
+        
+        $(document).on('click', '.v-delete', function(e) {
+            e.preventDefault();
+            var _this = $(this);
+            var qid = _this.parent().attr('qid');
+            $.ajax({
+                url: '/panel/youDelete',
                 type: 'post',
                 dataType: 'json',
                 data: {

@@ -19,6 +19,7 @@ class Landing extends \Conpoz\App\Controller\BaseController
                 header('Location: /');
             }
         }
+        $ruleObj = new \Conpoz\App\Lib\ValidateRule\Register();
         $this->view->addView('/htmlTemplate');
         $this->view->addView('/landing/index');
         require($this->view->getView());
@@ -36,5 +37,40 @@ class Landing extends \Conpoz\App\Controller\BaseController
         $bag->sess->account = null;
         setcookie('randomAccount', $randomToken, time()+60*60*24*365, '/', null, false, true);
         header('Location: /');
+    }
+    
+    public function logoutAction ($bag) 
+    {
+        $bag->sess->truncate();
+        setcookie('randomAccount', null, time() - 1, '/', null, false, true);
+        header('Location: /');
+    }
+    
+    public function loginAction ($bag)
+    {
+        $data = $bag->req->getPost(array('account', 'password'));
+        $ruleObj = new \Conpoz\App\Lib\ValidateRule\Register();
+        $ruleObj->autoChoice($data);
+        $errMsg = $bag->validator->valid($ruleObj, $data);
+        if (!empty($errMsg)) {
+            echo json_encode(array('result' => -1, 'message' => implode(',', $errMsg)));
+            return;
+        }
+        $rh = $bag->dbquery->execute("SELECT id, name, channel, user_role, account FROM user WHERE account = :account AND password = :password ", array('account' => $data['account'], 'password' => md5($data['password'])));
+        $obj = $rh->fetch();
+        if (!$obj) {
+            echo json_encode(array('result' => -1, 'message' => '帳號或密碼錯誤'));
+            return;
+        }
+        $bag->sess->channel = $bag->sess->user_id = $obj->id;
+        $bag->sess->name = $obj->name;
+        $bag->sess->user_role = $obj->user_role;
+        $bag->sess->account = $obj->account;
+        
+        $randomToken = md5(microtime(true));
+        $bag->dbquery->update('user', array('random_account' => $randomToken), "id = :id", array('id' => $obj->id));
+        setcookie('randomAccount', $randomToken, time()+60*60*24*365, '/', null, false, true);
+        echo json_encode(array('result' => 0));
+        return;
     }
 }
