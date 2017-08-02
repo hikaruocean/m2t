@@ -62,7 +62,8 @@ class Landing extends \Conpoz\App\Controller\BaseController
             echo json_encode(array('result' => -1, 'message' => '帳號或密碼錯誤'));
             return;
         }
-        $bag->sess->channel = $bag->sess->user_id = $obj->id;
+        $bag->sess->user_id = $obj->id;
+        $bag->sess->channel = $obj->channel;
         $bag->sess->name = $obj->name;
         $bag->sess->user_role = $obj->user_role;
         $bag->sess->account = $obj->account;

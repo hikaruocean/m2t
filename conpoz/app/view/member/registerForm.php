@@ -1,6 +1,3 @@
-<?php
-ob_start();
-?>
 <span class="register-btn">您也可以選擇現在註冊帳號</span>
 <div class="register-form" style="display:none">
     <form id="register-form" action="/member/register" method="post">
@@ -59,5 +56,3 @@ $(function () {
     });
 });
 </script>
-<?php 
-return ob_get_clean();

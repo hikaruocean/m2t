@@ -258,7 +258,14 @@
                                     case 'news':
                                         tempContent = jsonObj.data[i][key].content;
                                         setTimeout(function () {
-                                            $('#news-box').html(tempContent).slideDown(1000);
+                                            $.ajax({
+                                                url: tempContent,
+                                                type: 'get',
+                                                dataType: 'html',
+                                                success: function (html) {
+                                                    $('#news-box').html(html).slideDown(1000);
+                                                }
+                                            });
                                         }, jsonObj.data[i][key].delay * 1000);
                                         break;
                                     case 'videoNews':

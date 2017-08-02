@@ -22,9 +22,22 @@ class Register extends \Conpoz\Core\Lib\Util\Validator\ValidateRule
         'min-length:2' => 'name\'s min lenght is 2',
         'max-length:20' => 'name\'s max lenght is 20',
     );
-    public $channel = array(
-        'required' => 'channel is required',
-        'min-length:2' => 'channel\'s min lenght is 2',
-        'max-length:20' => 'channel\'s max lenght is 20',
-    );
+    
+    public function __construct ()
+    {
+        $this->channel = array(
+            'required' => 'channel is required',
+            'min-length:2' => 'channel\'s min lenght is 2',
+            'max-length:20' => 'channel\'s max lenght is 20',
+            'function' => function ($data) {
+                    $dbquery = \Conpoz\Core\Lib\Util\Container::getService('dbquery');
+                    $rh = $dbquery->execute("SELECT 1 FROM user WHERE channel = :channel", array('channel' => $data));
+                    $obj = $rh->fetch();
+                    if ($obj) {
+                        return 'channel already exist';
+                    }
+                    return true;
+                }
+        );
+    }
 }

@@ -5,7 +5,7 @@ class Member extends \Conpoz\App\Controller\BaseController
 {
     public function registerAction($bag) {
         try {
-            
+                
             $data = $bag->req->getPost(array('account', 'password', 'retype_password', 'name', 'channel'));
             $ruleObj = new \Conpoz\App\Lib\ValidateRule\Register();
             $ruleObj->setRuleErrBreak(true)->autoChoice($data);
@@ -23,5 +23,12 @@ class Member extends \Conpoz\App\Controller\BaseController
         } catch (\Exception $e) {
             echo json_encode(array('result' => -1, 'message' => $e->getMessage()));
         }
+    }
+    
+    public function registerFormAction ($bag)
+    {
+        $ruleObj = new \Conpoz\App\Lib\ValidateRule\Register();
+        $this->view->addView('/member/registerForm');
+        require($this->view->getView());
     }
 }
