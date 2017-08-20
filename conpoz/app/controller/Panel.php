@@ -159,6 +159,35 @@ class Panel extends \Conpoz\App\Controller\BaseController
         $resultAry = $bag->net->httpGet('http://127.0.0.1:50126/send?' . $payload);
     }
     
+    public function addExistVideoAction ($bag)
+    {
+        $params = $bag->req->getPost(array('id', 'vid'));
+        $bag->dbquery->begin();
+        $rh = $bag->dbquery->execute("SELECT id, url, video_id, title, info_result_code, order_count FROM video_list WHERE id = :id FOR UPDATE", array('id' => $params['vid']));
+        $obj = $rh->fetch();
+        if (!$obj) {
+            $bag->dbquery->rollback();
+            echo json_encode(array('result' => -1));
+        }
+        
+        $bag->dbquery->update('video_list', array('order_count' => $obj->order_count + 1), "id = :id", array('id' => (int) $obj->id));
+        
+        $vluRh = $bag->dbquery->execute("SELECT id, order_count FROM video_list_user WHERE user_id = :userId AND video_id = :videoId FOR UPDATE", array('userId' => (int) $bag->sess->user_id, 'videoId' => $obj->video_id));
+        if ($vluRh->rowCount() > 0) {
+            $vluObj = $vluRh->fetch();
+            $bag->dbquery->update('video_list_user', array('order_count' => $vluObj->order_count + 1), "id = :id", array('id' => (int) $vluObj->id));
+        } else {
+            $bag->dbquery->insert('video_list_user', array('user_id' => (int) $bag->sess->user_id, 'video_id' => $obj->video_id, 'order_count' => 1));
+        }
+        $vTitle = $obj->title;
+        $infoResultCode = $obj->info_result_code;
+        
+        $bag->dbquery->insert('play_queue', array('user_id' => (int) $params['id'], 'order_user_id' => (int) $bag->sess->user_id, 'url' => $obj->url, 'info_result_code' => (int) $infoResultCode, 'comment' => '', 'video_id' => $obj->video_id, 'title' => $vTitle, 'status' => 0, 'sort_no' => microtime(true)));
+        $bag->dbquery->commit();
+        echo json_encode(array('result' => 0, 'title' => $vTitle));
+        $this->videoListChange($params['id'], array('videoNews' => '[點歌] ' . $vTitle));
+    }
+    
     public function getVideoListAction ($bag) 
     {
         $rh = $bag->dbquery->execute("SELECT id, title, sort_no FROM play_queue WHERE user_id = :userId AND status = 0 ORDER BY sort_no ASC", array('userId' => (int) $bag->req->getPost('userId')));
@@ -192,5 +221,12 @@ class Panel extends \Conpoz\App\Controller\BaseController
         $params = $bag->req->getPost(array('id', 'qid'));
         $bag->dbquery->update('play_queue', array('status' => 1), "id = :id", array('id' => (int) $params['qid']));
         $this->videoListChange($params['id']);
+    }
+    
+    public function popularListAction ($bag)
+    {
+        $rh = $bag->dbquery->execute("SELECT a.id, a.title FROM video_list a INNER JOIN (SELECT id FROM video_list ORDER BY order_count DESC LIMIT 100 OFFSET 0) b ON a.id = b.id");
+        $this->view->addView('/panel/popularList');
+        require($this->view->getView());
     }
 }

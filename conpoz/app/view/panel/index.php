@@ -45,6 +45,7 @@
             <?php echo (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . '/panel/index/' . $channelUserInfo->channel;?>
         </span>
         <span class="right">
+            <span id="popular-list">Top 100</span>
             <a href="/landing/logout">Log Out</a>
         </span>
     </div>
@@ -298,6 +299,22 @@
         // $('#url').blur(function () {
         //     $('#loadFrame').attr('src', $(this).val());
         // });
+        
+        $('#popular-list').click(function (e) {
+            e.preventDefault();
+            $.ajax({
+                url: 'panel/popularList',
+                type: 'get',
+                dataType: 'html',
+                success: function (html) {
+                    $('#news-box').html(html).slideDown(1000);
+                },
+                error: function () {
+                    alert('ajax failed');
+                }
+            });
+        });
+        
         $('#send').click(function () {
             $.ajax({
                 url: '/message/send',
