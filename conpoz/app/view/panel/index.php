@@ -303,7 +303,7 @@
         $('#popular-list').click(function (e) {
             e.preventDefault();
             $.ajax({
-                url: 'panel/popularList',
+                url: '/panel/popularList',
                 type: 'get',
                 dataType: 'html',
                 success: function (html) {
