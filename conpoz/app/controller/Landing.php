@@ -15,7 +15,7 @@ class Landing extends \Conpoz\App\Controller\BaseController
                 $bag->sess->name = $obj->name;
                 $bag->sess->user_role = $obj->user_role;
                 $bag->sess->account = $obj->account;
-                setcookie('randomAccout', $randomToken, time()+60*60*24*365, '/', null, false, true);
+                setcookie('randomAccout', $RA, time()+60*60*24*365, '/', null, false, true);
                 header('Location: /');
             }
         }
